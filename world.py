@@ -27,7 +27,7 @@ class QAWorld(World):
         img_embed = self.abot.embed_image(batch_img)
 
         # answer first question, which was from the dataset
-        abot_ans = batch_task + self.qbot.opt['task_offset']
+        abot_ans = batch_task + self.qbot.task_offset
 
         # ask multiple rounds of questions and record conversation
         self.acts = []
@@ -38,7 +38,7 @@ class QAWorld(World):
 
             # clone and randomize a bit
             qbot_ques = qbot_ques.detach()
-            self.qbot.observe(self.qbot.opt['listen_offset'] + qbot_ques)
+            self.qbot.observe(self.qbot.listen_offset + qbot_ques)
 
             # forget answer if abot is memory-less
             if not self.opt['remember']:
@@ -50,7 +50,7 @@ class QAWorld(World):
 
             # clone and randomize a bit
             abot_ans = abot_ans.detach()
-            self.abot.observe(abot_ans + self.abot.opt['listen_offset'], img_embed)
+            self.abot.observe(abot_ans + self.abot.listen_offset, img_embed)
 
             self.acts.extend([qbot_ques, abot_ans])
 
