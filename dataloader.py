@@ -1,29 +1,36 @@
 from __future__ import print_function
+from functools import reduce
 import itertools
 import json
 import os
 import random
 
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
+
+from parlai.core.agents import Agent
 
 
 class ShapesQADataset(Dataset):
-    def __init__(self, data_path, train_split, q_out_vocab, a_out_vocab):
+
+    def __init__(self, data_path, q_out_vocab, a_out_vocab, train_split=None):
         self.path = data_path
-        self.train_split = train_split
         self.q_out_vocab = q_out_vocab
         self.a_out_vocab = a_out_vocab
+        self.train_split = train_split
 
         if os.path.exists(self.path):
             # load dataset from file
             with open(self.path, 'r') as infile:
                 loaded = json.load(infile)
-                for key, value in loaded.iteritems():
+                for key, value in loaded.items():
                     # inject props, task_defn, split_data into ``self``
                     setattr(self, key, value)
         else:
-            # create dataset if not loaded
+            # create dataset if not loaded, set default train_split if not set yet
+            if not self.train_split:
+                self.train_split = 0.8
+
             self.props = {
                 'colors': ['red', 'green', 'blue', 'purple'],
                 'shape': ['square', 'triangle', 'circle', 'star'],
@@ -75,7 +82,7 @@ class ShapesQADataset(Dataset):
         self.range_inds = torch.arange(0, len(self.data['train'])).long()
 
     def __len__(self):
-        return len(self.data['train']) + len(self.data['test'])
+        return len(self.data['train'])
 
     def __getitem__(self, index):
         task = torch.Tensor([random.randint(0, self.num_pair_tasks - 1)]).long()
@@ -87,24 +94,53 @@ class ShapesQADataset(Dataset):
 
         return {'example': example, 'task': task, 'labels': labels}
 
-    # converting to text
+
+class DataLoaderAgent(Agent):
+
+    @staticmethod
+    def add_cmdline_args(argparser):
+        dictionary = argparser.add_argument_group('Dataset Arguments')
+        dictionary.add_argument('--data-path', help='path of dataset file to save/load dataset')
+        dictionary.add_argument('--train-split', type=float, default=None,
+                                help='fraction of examples to be used for training (0 to 1)')
+        return dictionary
+
+    def __init__(self, opt, shared=None):
+        super(DataLoaderAgent, self).__init__(opt, shared)
+        self.id = 'DataLoaderAgent'
+        self.dataset = ShapesQADataset(
+            opt['data_path'], opt['q_out_vocab'], opt['a_out_vocab'])
+        self.dataloader = DataLoader(self.dataset, shuffle=True, batch_size=opt['batch_size'])
+        self.iter_dataloader = itertools.cycle(self.dataloader)
+
+    def act(self):
+        batch = next(self.iter_dataloader)
+        if self.opt['use_gpu']:
+            for key in batch:
+                batch[key] = batch[key].cuda()
+        return batch
+
+    def observe(self, observation=None):
+        pass
+
     def reformat_talk(self, talk, preds, images, tasks, labels):
+        """Convert to text."""
         script = []
-        if self.q_out_vocab < 4:
-            a_vocab = [str(ii) for ii in xrange(self.a_out_vocab)]
-            q_vocab = [chr(ii + 88) for ii in xrange(self.q_out_vocab)]
+        if self.dataset.q_out_vocab < 4:
+            a_vocab = [str(ii) for ii in xrange(self.dataset.a_out_vocab)]
+            q_vocab = [chr(ii + 88) for ii in xrange(self.dataset.q_out_vocab)]
         else:
-            a_vocab = ['a-%d' % ii for ii in xrange(self.a_out_vocab)]
-            q_vocab = ['q-%d' % ii for ii in xrange(self.q_out_vocab)]
+            a_vocab = ['a-%d' % ii for ii in xrange(self.dataset.a_out_vocab)]
+            q_vocab = ['q-%d' % ii for ii in xrange(self.dataset.q_out_vocab)]
 
         attr_name_task_defn = {0: 'color', 1: 'shape', 2: 'style'}
         for i in xrange(images.size(0)):
             # conversation
             conv = {}
-            conv['image'] = [self.vocab_attr[j] for j in images[i]]
-            conv['gt'] = [self.vocab_attr[labels[i, j]] for j in xrange(2)]
-            conv['task'] = [attr_name_task_defn[j] for j in self.task_defn[tasks[i]]]
-            conv['pred'] = [self.vocab_attr[preds[j].data[i, 0]]
+            conv['image'] = [self.dataset.vocab_attr[j] for j in images[i]]
+            conv['gt'] = [self.dataset.vocab_attr[labels[i, j]] for j in xrange(2)]
+            conv['task'] = [attr_name_task_defn[j] for j in self.dataset.task_defn[tasks[i]]]
+            conv['pred'] = [self.dataset.vocab_attr[preds[j].data[i, 0]]
                             for j in xrange(2)]
             conv['chat'] = [q_vocab[talk[0].data[i]],
                             a_vocab[talk[1].data[i]]]
@@ -125,7 +161,8 @@ class ShapesQADataset(Dataset):
         script = wrong_ex + script
         return script
 
-    def pretty_print(self, talk):
+    @staticmethod
+    def pretty_print(talk):
         """Pretty print result."""
         for conv in talk:
             # first print image, task
@@ -139,5 +176,6 @@ class ShapesQADataset(Dataset):
 
 
 if __name__ == '__main__':
-    dataset = ShapesQADataset('data/toy64_split_0.8.json', 0.8, 3, 4)
-    print(random.choice(dataset))
+    a = DataLoaderAgent({'data_path': 'data/toy64_split_0.8.json', 'q_out_vocab': 3, 'a_out_vocab': 4, 'batch_size': 2})
+    a.act()
+
