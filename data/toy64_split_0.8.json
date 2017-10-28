@@ -19,27 +19,32 @@
             "dashed"
         ]
     },
-    "split": {
+    "split_data": {
         "test": [
             [
-                "green",
-                "solid",
+                "blue",
+                "dotted",
+                "triangle"
+            ],
+            [
+                "red",
+                "dashed",
                 "circle"
             ],
             [
                 "blue",
-                "dashed",
-                "circle"
+                "dotted",
+                "square"
             ],
             [
                 "green",
-                "dashed",
-                "circle"
+                "solid",
+                "triangle"
             ],
             [
-                "red",
-                "solid",
-                "circle"
+                "green",
+                "filled",
+                "triangle"
             ],
             [
                 "green",
@@ -48,23 +53,13 @@
             ],
             [
                 "green",
-                "solid",
+                "dotted",
                 "square"
             ],
             [
-                "red",
-                "dotted",
-                "star"
-            ],
-            [
-                "purple",
-                "dotted",
-                "triangle"
-            ],
-            [
-                "blue",
-                "dashed",
-                "triangle"
+                "green",
+                "filled",
+                "square"
             ],
             [
                 "blue",
@@ -72,194 +67,29 @@
                 "square"
             ],
             [
-                "red",
+                "blue",
+                "dashed",
+                "circle"
+            ],
+            [
+                "purple",
                 "dotted",
                 "triangle"
             ],
             [
-                "red",
-                "dotted",
+                "purple",
+                "filled",
                 "square"
             ],
             [
-                "purple",
+                "blue",
                 "solid",
-                "square"
+                "triangle"
             ]
         ],
         "train": [
             [
-                "purple",
-                "filled",
-                "star"
-            ],
-            [
-                "red",
-                "filled",
-                "star"
-            ],
-            [
-                "purple",
-                "filled",
-                "circle"
-            ],
-            [
-                "blue",
-                "dotted",
-                "square"
-            ],
-            [
-                "blue",
-                "solid",
-                "square"
-            ],
-            [
-                "purple",
-                "filled",
-                "triangle"
-            ],
-            [
                 "green",
-                "dashed",
-                "square"
-            ],
-            [
-                "red",
-                "solid",
-                "triangle"
-            ],
-            [
-                "purple",
-                "dashed",
-                "circle"
-            ],
-            [
-                "red",
-                "dashed",
-                "triangle"
-            ],
-            [
-                "blue",
-                "filled",
-                "triangle"
-            ],
-            [
-                "green",
-                "dashed",
-                "triangle"
-            ],
-            [
-                "purple",
-                "dotted",
-                "square"
-            ],
-            [
-                "green",
-                "dashed",
-                "star"
-            ],
-            [
-                "purple",
-                "dashed",
-                "square"
-            ],
-            [
-                "blue",
-                "dotted",
-                "triangle"
-            ],
-            [
-                "green",
-                "dotted",
-                "star"
-            ],
-            [
-                "blue",
-                "filled",
-                "circle"
-            ],
-            [
-                "red",
-                "solid",
-                "star"
-            ],
-            [
-                "red",
-                "dashed",
-                "square"
-            ],
-            [
-                "green",
-                "solid",
-                "triangle"
-            ],
-            [
-                "green",
-                "filled",
-                "circle"
-            ],
-            [
-                "purple",
-                "dotted",
-                "star"
-            ],
-            [
-                "blue",
-                "filled",
-                "square"
-            ],
-            [
-                "purple",
-                "solid",
-                "circle"
-            ],
-            [
-                "blue",
-                "solid",
-                "triangle"
-            ],
-            [
-                "red",
-                "filled",
-                "triangle"
-            ],
-            [
-                "blue",
-                "solid",
-                "circle"
-            ],
-            [
-                "blue",
-                "dotted",
-                "star"
-            ],
-            [
-                "purple",
-                "dotted",
-                "circle"
-            ],
-            [
-                "green",
-                "filled",
-                "triangle"
-            ],
-            [
-                "red",
-                "dotted",
-                "circle"
-            ],
-            [
-                "green",
-                "dotted",
-                "triangle"
-            ],
-            [
-                "red",
-                "filled",
-                "circle"
-            ],
-            [
-                "red",
                 "solid",
                 "square"
             ],
@@ -269,48 +99,18 @@
                 "star"
             ],
             [
-                "red",
-                "filled",
-                "square"
-            ],
-            [
-                "blue",
-                "dashed",
-                "star"
-            ],
-            [
                 "green",
-                "dotted",
+                "solid",
                 "circle"
             ],
             [
-                "green",
-                "dotted",
+                "purple",
+                "dashed",
                 "square"
             ],
             [
                 "red",
-                "dashed",
-                "circle"
-            ],
-            [
-                "blue",
-                "dotted",
-                "circle"
-            ],
-            [
-                "purple",
-                "filled",
-                "square"
-            ],
-            [
-                "purple",
-                "dashed",
-                "star"
-            ],
-            [
-                "purple",
-                "dashed",
+                "solid",
                 "triangle"
             ],
             [
@@ -319,22 +119,22 @@
                 "star"
             ],
             [
-                "purple",
-                "solid",
+                "red",
+                "dotted",
                 "triangle"
             ],
             [
-                "purple",
-                "solid",
-                "star"
+                "green",
+                "dashed",
+                "circle"
             ],
             [
                 "green",
                 "filled",
-                "square"
+                "circle"
             ],
             [
-                "red",
+                "blue",
                 "dashed",
                 "star"
             ],
@@ -342,6 +142,206 @@
                 "blue",
                 "solid",
                 "star"
+            ],
+            [
+                "red",
+                "filled",
+                "square"
+            ],
+            [
+                "red",
+                "filled",
+                "star"
+            ],
+            [
+                "red",
+                "dotted",
+                "star"
+            ],
+            [
+                "blue",
+                "dotted",
+                "star"
+            ],
+            [
+                "blue",
+                "dashed",
+                "triangle"
+            ],
+            [
+                "purple",
+                "filled",
+                "circle"
+            ],
+            [
+                "purple",
+                "solid",
+                "square"
+            ],
+            [
+                "green",
+                "dashed",
+                "star"
+            ],
+            [
+                "blue",
+                "solid",
+                "circle"
+            ],
+            [
+                "red",
+                "dotted",
+                "square"
+            ],
+            [
+                "blue",
+                "dotted",
+                "circle"
+            ],
+            [
+                "red",
+                "dotted",
+                "circle"
+            ],
+            [
+                "purple",
+                "dashed",
+                "triangle"
+            ],
+            [
+                "blue",
+                "filled",
+                "square"
+            ],
+            [
+                "purple",
+                "dotted",
+                "square"
+            ],
+            [
+                "purple",
+                "solid",
+                "star"
+            ],
+            [
+                "red",
+                "solid",
+                "star"
+            ],
+            [
+                "red",
+                "dashed",
+                "star"
+            ],
+            [
+                "green",
+                "dashed",
+                "square"
+            ],
+            [
+                "purple",
+                "dashed",
+                "star"
+            ],
+            [
+                "green",
+                "dotted",
+                "star"
+            ],
+            [
+                "red",
+                "solid",
+                "circle"
+            ],
+            [
+                "red",
+                "dashed",
+                "square"
+            ],
+            [
+                "green",
+                "dotted",
+                "triangle"
+            ],
+            [
+                "red",
+                "dashed",
+                "triangle"
+            ],
+            [
+                "green",
+                "dashed",
+                "triangle"
+            ],
+            [
+                "blue",
+                "solid",
+                "square"
+            ],
+            [
+                "purple",
+                "dotted",
+                "star"
+            ],
+            [
+                "purple",
+                "filled",
+                "star"
+            ],
+            [
+                "blue",
+                "filled",
+                "circle"
+            ],
+            [
+                "purple",
+                "solid",
+                "circle"
+            ],
+            [
+                "blue",
+                "filled",
+                "triangle"
+            ],
+            [
+                "red",
+                "filled",
+                "circle"
+            ],
+            [
+                "purple",
+                "filled",
+                "triangle"
+            ],
+            [
+                "red",
+                "filled",
+                "triangle"
+            ],
+            [
+                "purple",
+                "dashed",
+                "circle"
+            ],
+            [
+                "purple",
+                "solid",
+                "triangle"
+            ],
+            [
+                "green",
+                "dotted",
+                "circle"
+            ],
+            [
+                "purple",
+                "dotted",
+                "circle"
+            ],
+            [
+                "red",
+                "solid",
+                "square"
             ]
         ]
     },
