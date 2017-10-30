@@ -2,7 +2,6 @@ from __future__ import print_function
 from functools import reduce
 import itertools
 import json
-import os
 import random
 
 import torch
@@ -12,23 +11,20 @@ from parlai.core.agents import Agent
 
 
 class ShapesQADataset(Dataset):
-
-    def __init__(self, data_path, q_out_vocab, a_out_vocab, train_split=None):
-        self.path = data_path
-        self.q_out_vocab = q_out_vocab
-        self.a_out_vocab = a_out_vocab
+    def __init__(self, opt, type='train'):
+        self.q_out_vocab = opt['q_out_vocab']
+        self.a_out_vocab = opt['a_out_vocab']
 
         # load dataset from file
-        with open(self.path, 'r') as infile:
+        with open(opt['data_path'], 'r') as infile:
             loaded = json.load(infile)
-            for key, value in loaded.items():
-                # inject props, task_defn, split_data into ``self``
-                setattr(self, key, value)
+            self.props = loaded['props']
+            self.task_select = torch.LongTensor(loaded['task_defn'])
+            self.data = loaded['split_data'][type]
 
         # number of single and pair wise tasks
         self.num_pair_tasks = 6
         self.num_single_tasks = 3
-
         # create a vocab map for field values (associate each attribute value with a number)
         attr_vals = reduce(lambda x, y: x + y, self.props.values())
         self.vocab_attr = {index: value for index, value in enumerate(attr_vals)}
@@ -38,77 +34,68 @@ class ShapesQADataset(Dataset):
         attr_pair = itertools.product(attr_vals, repeat=2)
         self.vocab_attr_pair = {index: value for index, value in enumerate(attr_pair)}
 
-        # Separate data loading for test/train
-        self.data = {}
-        for dtype in ['train', 'test']:
-            ddata = torch.LongTensor(len(self.split_data[dtype]), len(self.props))
-            for index, attr_set in enumerate(self.split_data[dtype]):
-                ddata[index] = torch.LongTensor([inv_vocab_attr[attr] for attr in attr_set])
-            self.data[dtype] = ddata
-        del self.split_data
+        ddata = torch.LongTensor(len(self.data), len(self.props))
+        for index, attr_set in enumerate(self.data):
+            ddata[index] = torch.LongTensor([inv_vocab_attr[attr] for attr in attr_set])
+        self.data = ddata
 
-        self.range_inds = torch.arange(0, len(self.data['train'])).long()
+        self.range_indices = torch.arange(0, len(self.data)).long()
 
     def __len__(self):
-        return len(self.data['train'])
+        return len(self.data)
 
     def __getitem__(self, index):
         task = torch.Tensor([random.randint(0, self.num_pair_tasks - 1)]).long()
-        example = self.data['train'][index]
+        example = self.data[index]
 
         # now sample predictions based on task
-        select_index = torch.Tensor(self.task_defn[task[0]]).long()
+        select_index = self.task_select[task[0]].long()
         labels = example.gather(0, select_index)
 
         return {'image': example, 'task': task, 'labels': labels}
 
+    def get_batch(self, batch_size, current_pred=None, neg_fraction=0.8):
+        """Get a batch."""
+        tasks = torch.LongTensor(batch_size).random_(0, self.num_pair_tasks - 1)
+        indices = torch.LongTensor(batch_size).random_(0, len(self.data) - 1)
 
-class DataLoaderAgent(Agent):
+        if current_pred:
+            # fill the first batch_size / 2 based on previously misclassified examples
+            neg_indices = current_pred.view(-1, self.num_pair_tasks).sum(1) < self.num_pair_tasks
+            neg_indices = self.range_indices.masked_select(neg_indices)
+            neg_batch_size = int(batch_size * neg_fraction)
+            # sample from this
+            neg_samples = torch.LongTensor(neg_batch_size).fill_(0)
+            if neg_indices.size(0) > 1:
+                neg_samples.random_(0, neg_indices.size(0) - 1)
+            neg_indices = neg_indices[neg_samples]
+            indices[:neg_batch_size] = neg_indices
+        images = self.data[indices]
 
-    @staticmethod
-    def add_cmdline_args(argparser):
-        dictionary = argparser.add_argument_group('Dataset Arguments')
-        dictionary.add_argument('--data-path', help='path of dataset file to save/load dataset')
-        dictionary.add_argument('--train-split', type=float, default=None,
-                                help='fraction of examples to be used for training (0 to 1)')
-        return dictionary
+        # now sample predictions based on task
+        select_indices = self.task_select[tasks]
+        labels = images.gather(1, select_indices)
 
-    def __init__(self, opt, shared=None):
-        super(DataLoaderAgent, self).__init__(opt, shared)
-        self.id = 'DataLoaderAgent'
-        self.dataset = ShapesQADataset(
-            opt['data_path'], opt['q_out_vocab'], opt['a_out_vocab'])
-        self.dataloader = DataLoader(self.dataset, shuffle=True, batch_size=opt['batchsize'])
-        self.iter_dataloader = itertools.cycle(self.dataloader)
-
-    def act(self):
-        batch = next(self.iter_dataloader)
-        if self.opt['use_gpu']:
-            for key in batch:
-                batch[key] = batch[key].cuda()
-        return batch
-
-    def observe(self, observation=None):
-        pass
+        return {'image': images, 'task': tasks, 'labels': labels}
 
     def reformat_talk(self, talk, preds, images, tasks, labels):
         """Convert to text."""
         script = []
-        if self.dataset.q_out_vocab < 4:
-            a_vocab = [str(ii) for ii in xrange(self.dataset.a_out_vocab)]
-            q_vocab = [chr(ii + 88) for ii in xrange(self.dataset.q_out_vocab)]
+        if self.q_out_vocab < 4:
+            a_vocab = [str(ii) for ii in xrange(self.a_out_vocab)]
+            q_vocab = [chr(ii + 88) for ii in xrange(self.q_out_vocab)]
         else:
-            a_vocab = ['a-%d' % ii for ii in xrange(self.dataset.a_out_vocab)]
-            q_vocab = ['q-%d' % ii for ii in xrange(self.dataset.q_out_vocab)]
+            a_vocab = ['a-%d' % ii for ii in xrange(self.a_out_vocab)]
+            q_vocab = ['q-%d' % ii for ii in xrange(self.q_out_vocab)]
 
         attr_name_task_defn = {0: 'color', 1: 'shape', 2: 'style'}
         for i in xrange(images.size(0)):
             # conversation
             conv = {}
-            conv['image'] = [self.dataset.vocab_attr[j] for j in images[i]]
-            conv['gt'] = [self.dataset.vocab_attr[labels[i, j]] for j in xrange(2)]
-            conv['task'] = [attr_name_task_defn[j] for j in self.dataset.task_defn[tasks[i]]]
-            conv['pred'] = [self.dataset.vocab_attr[preds[j].data[i, 0]]
+            conv['image'] = [self.vocab_attr[j] for j in images[i]]
+            conv['gt'] = [self.vocab_attr[labels[i, j]] for j in xrange(2)]
+            conv['task'] = [attr_name_task_defn[j] for j in self.task_select[tasks[i]]]
+            conv['pred'] = [self.vocab_attr[preds[j].data[i, 0]]
                             for j in xrange(2)]
             conv['chat'] = [q_vocab[talk[0].data[i]],
                             a_vocab[talk[1].data[i]]]
@@ -141,9 +128,3 @@ class DataLoaderAgent(Agent):
             # print GT and prediction
             print('\tGT: %s\tPred: %s' % (conv['gt'], conv['pred']))
             print('--------------------\n')
-
-
-if __name__ == '__main__':
-    a = DataLoaderAgent({'data_path': 'data/synthetic_dataset.json', 'q_out_vocab': 3, 'a_out_vocab': 4, 'batchsize': 2})
-    a.act()
-

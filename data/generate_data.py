@@ -31,7 +31,7 @@ if __name__ == '__main__':
                       'vgradient']
         }
 
-    data_verbose = list(itertools.product(PROPS.values()))
+    data_verbose = list(itertools.product(*PROPS.values()))
 
     # randomly select train and rest of it is test
     SPLIT_DATA = {}
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     TO_SAVE = {
         'props': PROPS,
         'task_defn': TASK_DEFN,
-        'SPLIT_DATA': SPLIT_DATA
+        'split_data': SPLIT_DATA
     }
 
     with open(opt['save_path'], 'w') as outfile:

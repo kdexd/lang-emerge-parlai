@@ -26,7 +26,7 @@ class ChatBotAgent(Agent, nn.Module):
         super(ChatBotAgent, self).__init__(opt, shared)
         nn.Module.__init__(self)
         self.id = 'ChatBotAgent'
-
+        self.observation = None
         # standard initializations
         self.h_state = torch.Tensor()
         self.c_state = torch.Tensor()
@@ -45,6 +45,9 @@ class ChatBotAgent(Agent, nn.Module):
     def observe(self, observation):
         """Given an input token, interact for next round."""
         self.observation = observation
+        if observation.get('episode_done'):
+            return
+
         # embed and pass through LSTM
         token_embeds = self.in_net(observation['text'])
 
