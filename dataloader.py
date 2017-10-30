@@ -92,7 +92,7 @@ class ShapesQADataset(Dataset):
         select_index = torch.Tensor(self.task_defn[task[0]]).long()
         labels = example.gather(0, select_index)
 
-        return {'example': example, 'task': task, 'labels': labels}
+        return {'image': example, 'task': task, 'labels': labels}
 
 
 class DataLoaderAgent(Agent):
@@ -110,7 +110,7 @@ class DataLoaderAgent(Agent):
         self.id = 'DataLoaderAgent'
         self.dataset = ShapesQADataset(
             opt['data_path'], opt['q_out_vocab'], opt['a_out_vocab'])
-        self.dataloader = DataLoader(self.dataset, shuffle=True, batch_size=opt['batch_size'])
+        self.dataloader = DataLoader(self.dataset, shuffle=True, batch_size=opt['batchsize'])
         self.iter_dataloader = itertools.cycle(self.dataloader)
 
     def act(self):
@@ -176,6 +176,6 @@ class DataLoaderAgent(Agent):
 
 
 if __name__ == '__main__':
-    a = DataLoaderAgent({'data_path': 'data/toy64_split_0.8.json', 'q_out_vocab': 3, 'a_out_vocab': 4, 'batch_size': 2})
+    a = DataLoaderAgent({'data_path': 'data/toy64_split_0.8.json', 'q_out_vocab': 3, 'a_out_vocab': 4, 'batchsize': 2})
     a.act()
 

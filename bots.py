@@ -8,10 +8,23 @@ from torch.autograd import Variable
 from parlai.core.agents import Agent
 
 
+def xavier_init(module):
+    for parameter in module.parameters():
+        if len(parameter.data.shape) == 1:
+            # 1D vector means bias
+            parameter.data.fill_(0)
+        else:
+            fan_in = parameter.data.size(0)
+            fan_out = parameter.data.size(1)
+            parameter.data.normal_(0, math.sqrt(2 / (fan_in + fan_out)))
+    return module
+
+
 class ChatBotAgent(Agent, nn.Module):
     """Parent class for both, questioner and answerer bots."""
     def __init__(self, opt, shared=None):
         super(ChatBotAgent, self).__init__(opt, shared)
+        nn.Module.__init__(self)
         self.id = 'ChatBotAgent'
 
         # standard initializations
@@ -27,49 +40,49 @@ class ChatBotAgent(Agent, nn.Module):
 
         # xavier init of in_net and out_net
         for module in {self.in_net, self.out_net}:
-            fan_in = module.weight.data.size(0)
-            fan_out = module.weight.data.size(1)
-            module.weight.data.normal_(0, math.sqrt(2 / (fan_in + fan_out)))
+            module = xavier_init(module)
 
     def observe(self, observation):
         """Given an input token, interact for next round."""
         self.observation = observation
         # embed and pass through LSTM
-        token_embeds = self.model.in_net(observation['text'])
+        token_embeds = self.in_net(observation['text'])
 
         # concat with image representation
         if 'image' in observation:
             token_embeds = torch.cat((token_embeds, observation['image']), 1)
-
+        # remove all dimensions with size one
+        token_embeds = token_embeds.squeeze(1)
         # now pass it through rnn
-        self.model.h_state, self.model.c_state = self.model.rnn(
-            token_embeds, (self.model.h_state, self.model.c_state))
+        self.h_state, self.c_state = self.rnn(token_embeds, (self.h_state, self.c_state))
 
     def act(self):
         """Speak a token."""
         # compute softmax and choose a token
-        out_distr = self.model.softmax(self.model.out_net(self.model.h_state))
+        out_distr = self.softmax(self.out_net(self.h_state))
 
         # if evaluating
-        if self.model.eval_flag:
+        if self.eval_flag:
             _, actions = out_distr.max(1)
             actions = actions.unsqueeze(1)
         else:
             actions = out_distr.multinomial()
             # record actions
             self.actions.append(actions)
-        return actions.squeeze(1)
+        return {'text': actions.squeeze(1), 'id': self.id}
 
-    def reinforce(self):
+    def reinforce(self, reward):
         """Reinforce each state wth reward."""
         for action in self.actions:
-            action.reinforce(self.observation['reward'])
+            action.reinforce(reward)
 
-    def reset(self, batch_size, retain_actions=False):
+    def reset(self, retain_actions=False):
         """Reset model and actions."""
-        self.h_state.resize_(batch_size, self.hidden_size).fill_(0)
+        self.h_state = torch.Tensor()
+        self.h_state.resize_(self.opt['batchsize'], self.opt['hidden_size']).fill_(0)
         self.h_state = Variable(self.h_state)
-        self.c_state.resize_(batch_size, self.hidden_size).fill_(0)
+        self.c_state = torch.Tensor()
+        self.c_state.resize_(self.opt['batchsize'], self.opt['hidden_size']).fill_(0)
         self.c_state = Variable(self.c_state)
 
         if not retain_actions:
@@ -91,39 +104,38 @@ class ChatBotAgent(Agent, nn.Module):
 
 class Questioner(ChatBotAgent):
     def __init__(self, opt, shared=None):
-        opt['in_vocab_size'] = opt['q_in_vocab']
+        opt['in_vocab_size'] = opt['q_out_vocab'] + opt['a_out_vocab'] + opt['task_vocab']
         opt['out_vocab_size'] = opt['q_out_vocab']
         super(Questioner, self).__init__(opt, shared)
         self.id = 'QBot'
 
         # always condition on task
-        self.rnn = nn.LSTMCell(self.opts['embed_size'], self.opts['hidden_size'])
+        self.rnn = nn.LSTMCell(self.opt['embed_size'], self.opt['hidden_size'])
 
         # additional prediction network
         # start token included
         num_preds = sum([len(ii) for ii in self.opt['props'].values()])
         # network for predicting
-        self.predict_rnn = nn.LSTMCell(self.embed_size, self.hidden_size)
-        self.predict_net = nn.Linear(self.hidden_size, num_preds)
+        self.predict_rnn = nn.LSTMCell(self.opt['embed_size'], self.opt['hidden_size'])
+        self.predict_net = nn.Linear(self.opt['hidden_size'], num_preds)
 
         # xavier init of rnn, predict_rnn, predict_net
         for module in {self.rnn, self.predict_rnn, self.predict_net}:
-            fan_in = module.weight.data.size(0)
-            fan_out = module.weight.data.size(1)
-            module.weight.data.normal_(0, math.sqrt(2 / (fan_in + fan_out)))
+            module = xavier_init(module)
 
         # setting offset
-        self.task_offset = opt['a_out_vocab'] + opt['q_out_vocab']
-        self.listen_offset = opt['a_out_Vocab']
+        self.task_offset = opt['q_out_vocab'] + opt['a_out_vocab']
+        self.listen_offset = opt['a_out_vocab']
 
     def predict(self, tasks, num_tokens):
         """Return an answer from the task."""
         guess_tokens = []
         guess_distr = []
 
-        for _ in xrange(num_tokens):
+        for _ in range(num_tokens):
             # explicit task dependence
             task_embeds = self.in_net(tasks)
+            task_embeds = task_embeds.squeeze()
             # compute softmax and choose a token
             self.h_state, self.c_state = self.predict_rnn(
                 task_embeds, (self.h_state, self.c_state))
@@ -151,9 +163,10 @@ class Questioner(ChatBotAgent):
 
 class Answerer(ChatBotAgent):
     def __init__(self, opt, shared=None):
-        opt['in_vocab_size'] = opt['a_in_vocab']
+        opt['in_vocab_size'] = opt['q_out_vocab'] + opt['a_out_vocab']
         opt['out_vocab_size'] = opt['a_out_vocab']
         super(Answerer, self).__init__(opt, shared)
+        self.id = 'ABot'
 
         # number of attribute values
         num_attrs = sum([len(ii) for ii in self.opt['props'].values()])
@@ -168,9 +181,7 @@ class Answerer(ChatBotAgent):
 
         # xavier init of in_net and out_net
         for module in {self.img_net, self.rnn}:
-            fan_in = module.weight.data.size(0)
-            fan_out = module.weight.data.size(1)
-            module.weight.data.normal_(0, math.sqrt(2 / (fan_in + fan_out)))
+            module = xavier_init(module)
 
         # set offset
         self.listen_offset = opt['q_out_vocab']
