@@ -70,3 +70,5 @@ ENV/
 .DS_Store
 
 .idea
+data/*.json
+

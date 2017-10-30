@@ -17,45 +17,13 @@ class ShapesQADataset(Dataset):
         self.path = data_path
         self.q_out_vocab = q_out_vocab
         self.a_out_vocab = a_out_vocab
-        self.train_split = train_split
 
-        if os.path.exists(self.path):
-            # load dataset from file
-            with open(self.path, 'r') as infile:
-                loaded = json.load(infile)
-                for key, value in loaded.items():
-                    # inject props, task_defn, split_data into ``self``
-                    setattr(self, key, value)
-        else:
-            # create dataset if not loaded, set default train_split if not set yet
-            if not self.train_split:
-                self.train_split = 0.8
-
-            self.props = {
-                'colors': ['red', 'green', 'blue', 'purple'],
-                'shape': ['square', 'triangle', 'circle', 'star'],
-                'style': ['dotted', 'solid', 'filled', 'dashed']
-            }
-            data_verbose = list(itertools.product(*self.props.values()))
-
-            # randomly select train and rest of it is test
-            self.split_data = {}
-            self.split_data['train'] = random.sample(data_verbose,
-                                                     int(self.train_split * len(data_verbose)))
-            self.split_data['test'] = list(set(data_verbose) - set(self.split_data['train']))
-
-            self.task_defn = [[0, 1], [1, 0], [0, 2],
-                              [2, 0], [1, 2], [2, 1],
-                              [0, 0], [1, 1], [2, 2]]
-
-            to_save = {
-                'props': self.props,
-                'task_defn': self.task_defn,
-                'split_data': self.split_data
-            }
-
-            with open(self.path, 'w') as outfile:
-                json.dump(to_save, outfile, indent=4, separators=(',', ': '), sort_keys=True)
+        # load dataset from file
+        with open(self.path, 'r') as infile:
+            loaded = json.load(infile)
+            for key, value in loaded.items():
+                # inject props, task_defn, split_data into ``self``
+                setattr(self, key, value)
 
         # number of single and pair wise tasks
         self.num_pair_tasks = 6
@@ -176,6 +144,6 @@ class DataLoaderAgent(Agent):
 
 
 if __name__ == '__main__':
-    a = DataLoaderAgent({'data_path': 'data/toy64_split_0.8.json', 'q_out_vocab': 3, 'a_out_vocab': 4, 'batchsize': 2})
+    a = DataLoaderAgent({'data_path': 'data/synthetic_dataset.json', 'q_out_vocab': 3, 'a_out_vocab': 4, 'batchsize': 2})
     a.act()
 
