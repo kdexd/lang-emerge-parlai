@@ -38,7 +38,7 @@ parser.add_argument('--remember', dest='remember', action='store_true',
                     help='Turn on/off for ABot with memory')
 
 parser.add_argument_group('Optimization Hyperparameters')
-parser.add_argument('--batch-size', default=1, type=int,
+parser.add_argument('--batch-size', default=1000, type=int,
                     help='Batch size during training')
 parser.add_argument('--num-epochs', default=10000, type=int,
                     help='Max number of epochs to run')
@@ -52,6 +52,7 @@ opt = parser.parse_args()
 # setup dataset
 #------------------------------------------------------------------------
 qa_train = ShapesQADataset(opt, 'train')
+qa_val = ShapesQADataset(opt, 'val')
 # pull out few attributes from dataset in main opts for other bots to use
 opt['props'] = qa_train.props
 opt['task_vocab'] = qa_train.task_select.shape[0]
@@ -76,12 +77,18 @@ optimizer = optim.Adam([{'params': world.abot.parameters(),
 num_iter_per_epoch = int(np.ceil(len(qa_train) / opt['batch_size']))
 num_iter_per_epoch = max(1, num_iter_per_epoch)
 
+matches = {}
+accuracy = {}
 
 for epoch_id in range(opt['num_epochs']):
     for iter_id in range(num_iter_per_epoch):
         optimizer.zero_grad()
 
-        batch = qa_train.get_batch(opt['batch_size'])
+        if 'train' in matches:
+            batch = qa_train.get_batch(opt['batch_size'], matches['train'], opt['neg_fraction'])
+        else:
+            batch = qa_train.get_batch(opt['batch_size'])
+
         batch['image'], batch['task'] = autograd.Variable(batch['image']), \
                                         autograd.Variable(batch['task'])
 
@@ -124,3 +131,45 @@ for epoch_id in range(opt['num_epochs']):
 
         optimizer.step()
         print("STEP DONE: " + str(world.cumulative_reward))
+
+    #--------------------------------------------------------------------
+    # training and validation metrics
+    #--------------------------------------------------------------------
+    world.qbot.eval()
+    world.abot.eval()
+    tr_all = qa_train.get_complete_data()
+    tr_all['image'], tr_all['task'] = autograd.Variable(tr_all['image']), \
+                                      autograd.Variable(tr_all['task'])
+    world.qbot.observe({'batch': tr_all, 'episode_done': True})
+
+    for round in range(opt['num_rounds']):
+        world.parley()
+    talk = world.acts
+    # compute accuracy for color, shape, and both
+    guess_token, guess_distr = world.qbot.predict(tr_all['task'], 2)
+    first_match = guess_token[0].data == tr_all['labels'][:, 0].long()
+    second_match = guess_token[1].data == tr_all['labels'][:, 1].long()
+    matches['train'] = first_match & second_match
+    accuracy['train'] = 100 * torch.sum(matches['train']) / float(matches['train'].size(0))
+
+    val_all = qa_val.get_complete_data()
+    val_all['image'], val_all['task'] = autograd.Variable(val_all['image']), \
+                                        autograd.Variable(val_all['task'])
+    world.qbot.observe({'batch': val_all, 'episode_done': True})
+
+    for round in range(opt['num_rounds']):
+        world.parley()
+    talk = world.acts
+    # compute accuracy for color, shape, and both
+    guess_token, guess_distr = world.qbot.predict(val_all['task'], 2)
+    first_match = guess_token[0].data == val_all['labels'][:, 0].long()
+    second_match = guess_token[1].data == val_all['labels'][:, 1].long()
+    matches['val'] = first_match & second_match
+    accuracy['val'] = 100 * torch.sum(matches['val']) / float(matches['val'].size(0))
+    # switch to train
+    world.qbot.train()
+    world.abot.train()
+
+    # break if train accuracy reaches 100%
+    if accuracy['train'] == 100:
+        break

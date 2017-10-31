@@ -59,7 +59,7 @@ class ShapesQADataset(Dataset):
         tasks = torch.LongTensor(batch_size).random_(0, self.num_pair_tasks - 1)
         indices = torch.LongTensor(batch_size).random_(0, len(self.data) - 1)
 
-        if current_pred:
+        if current_pred is not None:
             # fill the first batch_size / 2 based on previously misclassified examples
             neg_indices = current_pred.view(-1, self.num_pair_tasks).sum(1) < self.num_pair_tasks
             neg_indices = self.range_indices.masked_select(neg_indices)
@@ -71,6 +71,20 @@ class ShapesQADataset(Dataset):
             neg_indices = neg_indices[neg_samples]
             indices[:neg_batch_size] = neg_indices
         images = self.data[indices]
+
+        # now sample predictions based on task
+        select_indices = self.task_select[tasks]
+        labels = images.gather(1, select_indices)
+
+        return {'image': images, 'task': tasks, 'labels': labels}
+
+    def get_complete_data(self):
+        """Get all configurations."""
+        # expand self.data three folds, along with labels
+        images = self.data.unsqueeze(0).repeat(1, 1, self.num_pair_tasks)
+        images = images.view(-1, len(self.props))
+        tasks = torch.arange(0, self.num_pair_tasks).long()
+        tasks = tasks.unsqueeze(0).repeat(1, len(self.data)).view(-1)
 
         # now sample predictions based on task
         select_indices = self.task_select[tasks]
