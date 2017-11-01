@@ -16,6 +16,7 @@ parser.add_argument('--holdout', type=float, default=0.2,
 if __name__ == '__main__':
     opt = parser.parse_args()
 
+    ATTRIBUTES = ['color', 'shape', 'style']
     if opt['size'] == 'normal':
         PROPS = {
             'color': ['red', 'green', 'blue', 'purple'],
@@ -43,6 +44,7 @@ if __name__ == '__main__':
                  [0, 0], [1, 1], [2, 2]]
 
     TO_SAVE = {
+        'attributes': ATTRIBUTES,
         'props': PROPS,
         'task_defn': TASK_DEFN,
         'split_data': SPLIT_DATA

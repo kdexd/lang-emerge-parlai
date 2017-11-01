@@ -18,15 +18,19 @@ class ShapesQADataset(Dataset):
         # load dataset from file
         with open(opt['data_path'], 'r') as infile:
             loaded = json.load(infile)
+            self.attributes = loaded['attributes']
             self.props = loaded['props']
+            self.task_defn = loaded['task_defn']
             self.task_select = torch.LongTensor(loaded['task_defn'])
             self.data = loaded['split_data'][type]
 
         # number of single and pair wise tasks
         self.num_pair_tasks = 6
         self.num_single_tasks = 3
+
         # create a vocab map for field values (associate each attribute value with a number)
-        attr_vals = reduce(lambda x, y: x + y, self.props.values())
+        attr_vals = reduce(lambda x, y: x + y, [self.props[attr] for attr in self.attributes])
+        self.vocab_task = {index: value for index, value in enumerate(self.attributes)}
         self.vocab_attr = {index: value for index, value in enumerate(attr_vals)}
         inv_vocab_attr = {value: index for index, value in self.vocab_attr.items()}
 
@@ -96,26 +100,25 @@ class ShapesQADataset(Dataset):
         """Convert to text."""
         script = []
         if self.q_out_vocab < 4:
-            a_vocab = [str(ii) for ii in xrange(self.a_out_vocab)]
-            q_vocab = [chr(ii + 88) for ii in xrange(self.q_out_vocab)]
+            a_vocab = [str(ii) for ii in range(self.a_out_vocab)]
+            q_vocab = [chr(ii + 88) for ii in range(self.q_out_vocab)]
         else:
-            a_vocab = ['a-%d' % ii for ii in xrange(self.a_out_vocab)]
-            q_vocab = ['q-%d' % ii for ii in xrange(self.q_out_vocab)]
+            a_vocab = ['a-%d' % ii for ii in range(self.a_out_vocab)]
+            q_vocab = ['q-%d' % ii for ii in range(self.q_out_vocab)]
 
-        attr_name_task_defn = {0: 'color', 1: 'shape', 2: 'style'}
-        for i in xrange(images.size(0)):
+        for i in range(images.size(0)):
             # conversation
             conv = {}
-            conv['image'] = [self.vocab_attr[j] for j in images[i]]
-            conv['gt'] = [self.vocab_attr[labels[i, j]] for j in xrange(2)]
-            conv['task'] = [attr_name_task_defn[j] for j in self.task_select[tasks[i]]]
+            conv['image'] = [self.vocab_attr[j] for j in images[i].data]
+            conv['gt'] = [self.vocab_attr[labels[i, j]] for j in range(2)]
+            conv['task'] = [self.vocab_task[j] for j in self.task_select[tasks[i].data].squeeze()]
             conv['pred'] = [self.vocab_attr[preds[j].data[i, 0]]
-                            for j in xrange(2)]
-            conv['chat'] = [q_vocab[talk[0].data[i]],
-                            a_vocab[talk[1].data[i]]]
+                              for j in range(2)]
+            conv['chat'] = [q_vocab[talk[0]['text'].data[i]],
+                            a_vocab[talk[1]['text'].data[i]]]
             if len(talk) > 3:
-                conv['chat'].extend([q_vocab[talk[2].data[i]],
-                                     a_vocab[talk[3].data[i]]])
+                conv['chat'].extend([q_vocab[talk[2]['text'].data[i]],
+                                     a_vocab[talk[3]['text'].data[i]]])
             script.append(conv)
 
         # re-arrange such that negative examples are on the top
