@@ -18,19 +18,17 @@ opt = options.read()
 #-------------------------------------------------------------------------------------------------
 # setup dataset
 #-------------------------------------------------------------------------------------------------
-qa = {
-    'train': ShapesQADataset(opt, 'train'),
-    'val': ShapesQADataset(opt, 'val')
-}
+dataset = ShapesQADataset(opt)
 # pull out few attributes from dataset in main opts for other bots to use
-opt['props'] = qa['train'].properties
-opt['task_vocab'] = len(qa['train'].task_defn)
+opt['props'] = dataset.properties
+opt['task_vocab'] = len(dataset.task_defn)
 
 #-------------------------------------------------------------------------------------------------
 # setup experiment
 #-------------------------------------------------------------------------------------------------
 questioner = Questioner(opt)
 answerer = Answerer(opt)
+# this reward tensor is re-used every iteration
 reward = torch.Tensor(opt['batch_size'], 1).fill_(- 10 * opt['rl_scale'])
 if opt['use_gpu']:
     questioner, answerer, reward = questioner.cuda(), answerer.cuda(), reward.cuda()
@@ -47,7 +45,7 @@ optimizer = optim.Adam([{'params': world.abot.parameters(),
 #-------------------------------------------------------------------------------------------------
 # train agents
 #-------------------------------------------------------------------------------------------------
-NUM_ITER_PER_EPOCH = max(0, int(np.ceil(len(qa['train']) / opt['batch_size'])))
+NUM_ITER_PER_EPOCH = max(0, int(np.ceil(len(dataset) / opt['batch_size'])))
 
 """``matches`` will have a tensor of booleans as values. i-th true value represents i-th example's
 ground truth matching prediction in previous iteration. This dict is useful for sampling negative
@@ -66,9 +64,9 @@ for epoch_id in range(opt['num_epochs']):
         # episode batch retrieval and dialog
         #-----------------------------------------------------------------------------------------
         if matches.get('train') is not None:
-            batch = qa['train'].get_batch(matches['train'])
+            batch = dataset.get_batch('train', matches['train'])
         else:
-            batch = qa['train'].get_batch()
+            batch = dataset.get_batch('train')
         batch['image'], batch['task'] = Variable(batch['image']), Variable(batch['task'])
         world.qbot.observe({'batch': batch, 'episode_done': True})
 
@@ -107,7 +105,7 @@ for epoch_id in range(opt['num_epochs']):
     world.abot.eval()
 
     for dtype in ['train', 'val']:
-        batch = qa['train'].get_complete_data()
+        batch = dataset.get_complete_data(dtype)
         batch['image'], batch['task'] = Variable(batch['image']), Variable(batch['task'])
         world.qbot.observe({'batch': batch, 'episode_done': True})
 

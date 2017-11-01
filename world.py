@@ -18,8 +18,8 @@ class QAWorld(DialogPartnerWorld):
     def parley(self):
         if self.qbot.observation.get('episode_done'):
             self.episode_batch = self.qbot.observation['batch']
-            self.qbot.reset(len(self.episode_batch['image']), retain_actions=False)
-            self.abot.reset(len(self.episode_batch['image']), retain_actions=False)
+            self.qbot.reset(batch_size=self.episode_batch['task'].size(0), retain_actions=False)
+            self.abot.reset(batch_size=self.episode_batch['task'].size(0), retain_actions=False)
 
             # get task embedding and image representation
             self.episode_batch['image_embed'] = self.abot.embed_image(self.episode_batch['image'])
@@ -42,7 +42,7 @@ class QAWorld(DialogPartnerWorld):
 
         # forget answer if abot is memory-less
         if not self.opt['remember']:
-            self.abot.reset(len(self.episode_batch['image']), retain_actions=True)
+            self.abot.reset(batch_size=self.episode_batch['task'].size(0), retain_actions=True)
 
         # observe question and image embedding, also observe answer
         self.abot.observe({

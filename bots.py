@@ -52,9 +52,7 @@ class ChatBotAgent(Agent, nn.Module):
             if observation.get('reward') is not None:
                 for action in self.actions:
                     action.reinforce(observation['reward'])
-                autograd_backward(self.actions,
-                                  [None for _ in self.actions],
-                                  retain_graph=True)
+                autograd_backward(self.actions, [None for _ in self.actions], retain_graph=True)
 
                 # clamp all gradients between (-5, 5)
                 for parameter in self.parameters():
@@ -86,16 +84,13 @@ class ChatBotAgent(Agent, nn.Module):
             self.actions.append(actions)
         return {'text': actions.squeeze(1), 'id': self.id}
 
-    def reset(self, batch_size, retain_actions=False):
+    def reset(self, batch_size=None, retain_actions=False):
         """Reset model and actions. opt.batch_size is not used because batch_size is different
         when complete data is passed on."""
-        self.h_state = torch.Tensor()
-        self.h_state.resize_(batch_size, self.opt['hidden_size']).fill_(0)
-        self.h_state = Variable(self.h_state)
-        self.c_state = torch.Tensor()
-        self.c_state.resize_(batch_size, self.opt['hidden_size']).fill_(0)
-        self.c_state = Variable(self.c_state)
-
+        if batch_size is None:
+            batch_size = self.opt['batch_size']
+        self.h_state = Variable(torch.zeros(batch_size, self.opt['hidden_size']))
+        self.c_state = Variable(torch.zeros(batch_size, self.opt['hidden_size']))
         if self.opt['use_gpu']:
             self.h_state, self.c_state = self.h_state.cuda(), self.c_state.cuda()
 

@@ -20,14 +20,13 @@ class ShapesQADataset(Dataset):
     opt : dict
     attributes : list
     properties : dict
-    task_defn : torch.LongTensor
-    data : torch.LongTensor
+    task_defn : torch.LongTensor or torch.cuda.LongTensor
+    data : torch.LongTensor or torch.cuda.LongTensor
     vocab_task : dict
     vocab_attr_val : dict
-    range_indices : torch.LongTensor
     """
 
-    def __init__(self, opt, dtype='train'):
+    def __init__(self, opt):
         self.opt = opt
 
         # load dataset from file
@@ -36,7 +35,7 @@ class ShapesQADataset(Dataset):
             self.attributes = loaded['attributes']
             self.properties = loaded['properties']
             self.task_defn = torch.LongTensor(loaded['task_defn'])
-            self.data = loaded['split_data'][dtype]
+            self.data = loaded['split_data']
 
         # create a vocab map for field values (associate each attribute value with a number)
         attr_vals = reduce(lambda x, y: x + y, [self.properties[attr] for attr in self.attributes])
@@ -44,17 +43,17 @@ class ShapesQADataset(Dataset):
         self.vocab_attr_val = {index: value for index, value in enumerate(attr_vals)}
         inv_vocab_attr_val = {value: index for index, value in self.vocab_attr_val.items()}
 
-        data_tensor = torch.LongTensor(len(self.data), len(self.properties))
-        for index, attr_set in enumerate(self.data):
-            data_tensor[index] = torch.LongTensor([inv_vocab_attr_val[attr] for attr in attr_set])
-        self.data = data_tensor
-        self.range_indices = torch.arange(0, len(self.data)).long()
+        for dtype in ['train', 'val']:
+            data_t = torch.LongTensor(len(self.data[dtype]), len(self.properties))
+            for index, attr_set in enumerate(self.data[dtype]):
+                data_t[index] = torch.LongTensor([inv_vocab_attr_val[attr] for attr in attr_set])
+            self.data[dtype] = data_t
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data['train'])
 
     def __getitem__(self, index):
-        image = self.data[index]
+        image = self.data['train'][index]
         task = random.randint(0, len(self.task_defn) - 1)
 
         # now sample predictions based on task
@@ -65,25 +64,27 @@ class ShapesQADataset(Dataset):
             image, task, labels = image.cuda(), task.cuda(), labels.cuda()
         return {'image': image, 'task': task, 'labels': labels}
 
-    def get_batch(self, current_pred=None):
+    def get_batch(self, dtype, current_pred=None):
         """Get a batch randomly sampled from data."""
-        indices = [random.randint(0, len(self.data) - 1) for _ in range(self.opt['batch_size'])]
+        indices = [random.randint(0, len(self.data[dtype]) - 1)
+                   for _ in range(self.opt['batch_size'])]
         indices = torch.LongTensor(indices)
 
         if current_pred is not None:
             # fill the first batch_size / 2 based on previously misclassified examples
+            current_pred = current_pred.cpu()
             neg_indices = current_pred.view(
                 -1, len(self.task_defn)).sum(1) < len(self.task_defn)
-            neg_indices = self.range_indices.masked_select(neg_indices.clone().cpu())
+            neg_indices = torch.arange(0, len(self.data[dtype])).masked_select(neg_indices).long()
             neg_batch_size = int(self.opt['batch_size'] * self.opt['neg_fraction'])
             # sample from this
             if neg_batch_size > 0:
-                neg_samples = torch.LongTensor(neg_batch_size).fill_(0)
+                neg_samples = torch.zeros(neg_batch_size).long()
                 if neg_indices.size(0) > 1:
                     neg_samples.random_(0, neg_indices.size(0) - 1)
                 neg_indices = neg_indices[neg_samples]
                 indices[:neg_batch_size] = neg_indices
-        images = self.data[indices]
+        images = self.data[dtype][indices]
 
         tasks = torch.Tensor([random.randint(0, len(self.task_defn) - 1)
                               for _ in range(self.opt['batch_size'])]).long()
@@ -94,13 +95,13 @@ class ShapesQADataset(Dataset):
             images, tasks, labels = images.cuda(), tasks.cuda(), labels.cuda()
         return {'image': images, 'task': tasks, 'labels': labels}
 
-    def get_complete_data(self):
+    def get_complete_data(self, dtype):
         """Get all configurations."""
         # expand self.data three folds, along with labels
-        images = self.data.unsqueeze(0).repeat(1, 1, len(self.task_defn))
+        images = self.data[dtype].unsqueeze(0).repeat(1, 1, len(self.task_defn))
         images = images.view(-1, len(self.properties))
         tasks = torch.arange(0, len(self.task_defn)).long()
-        tasks = tasks.unsqueeze(0).repeat(1, len(self.data)).view(-1)
+        tasks = tasks.unsqueeze(0).repeat(1, len(self.data[dtype])).view(-1)
 
         # now sample predictions based on task
         select_indices = self.task_defn[tasks]
