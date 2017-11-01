@@ -86,14 +86,18 @@ class ChatBotAgent(Agent, nn.Module):
             self.actions.append(actions)
         return {'text': actions.squeeze(1), 'id': self.id}
 
-    def reset(self, retain_actions=False):
-        """Reset model and actions."""
+    def reset(self, batch_size, retain_actions=False):
+        """Reset model and actions. opt.batch_size is not used because batch_size is different
+        when complete data is passed on."""
         self.h_state = torch.Tensor()
-        self.h_state.resize_(self.opt['batchsize'], self.opt['hidden_size']).fill_(0)
+        self.h_state.resize_(batch_size, self.opt['hidden_size']).fill_(0)
         self.h_state = Variable(self.h_state)
         self.c_state = torch.Tensor()
-        self.c_state.resize_(self.opt['batchsize'], self.opt['hidden_size']).fill_(0)
+        self.c_state.resize_(batch_size, self.opt['hidden_size']).fill_(0)
         self.c_state = Variable(self.c_state)
+
+        if self.opt['use_gpu']:
+            self.h_state, self.c_state = self.h_state.cuda(), self.c_state.cuda()
 
         if not retain_actions:
             self.actions = []

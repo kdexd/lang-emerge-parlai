@@ -74,14 +74,15 @@ class ShapesQADataset(Dataset):
             # fill the first batch_size / 2 based on previously misclassified examples
             neg_indices = current_pred.view(
                 -1, len(self.task_defn)).sum(1) < len(self.task_defn)
-            neg_indices = self.range_indices.masked_select(neg_indices)
+            neg_indices = self.range_indices.masked_select(neg_indices.clone().cpu())
             neg_batch_size = int(self.opt['batch_size'] * self.opt['neg_fraction'])
             # sample from this
-            neg_samples = torch.LongTensor(neg_batch_size).fill_(0)
-            if neg_indices.size(0) > 1:
-                neg_samples.random_(0, neg_indices.size(0) - 1)
-            neg_indices = neg_indices[neg_samples]
-            indices[:neg_batch_size] = neg_indices
+            if neg_batch_size > 0:
+                neg_samples = torch.LongTensor(neg_batch_size).fill_(0)
+                if neg_indices.size(0) > 1:
+                    neg_samples.random_(0, neg_indices.size(0) - 1)
+                neg_indices = neg_indices[neg_samples]
+                indices[:neg_batch_size] = neg_indices
         images = self.data[indices]
 
         tasks = torch.Tensor([random.randint(0, len(self.task_defn) - 1)

@@ -31,6 +31,9 @@ opt['task_vocab'] = len(qa['train'].task_defn)
 #-------------------------------------------------------------------------------------------------
 questioner = Questioner(opt)
 answerer = Answerer(opt)
+reward = torch.Tensor(opt['batch_size'], 1).fill_(- 10 * opt['rl_scale'])
+if opt['use_gpu']:
+    questioner, answerer, reward = questioner.cuda(), answerer.cuda(), reward.cuda()
 print('Questioner and Answerer Bots: ')
 print(questioner)
 print(answerer)
@@ -75,7 +78,7 @@ for epoch_id in range(opt['num_epochs']):
         # reward formulation and reinforcement
         #-----------------------------------------------------------------------------------------
         guess_token, guess_distr = world.qbot.predict(batch['task'], 2)
-        reward = torch.Tensor(opt['batch_size'], 1).fill_(- 10 * opt['rl_scale'])
+        reward.fill_(- 10 * opt['rl_scale'])
 
         # both attributes need to match
         first_match = guess_token[0].data == batch['labels'][:, 0:1]
@@ -93,6 +96,7 @@ for epoch_id in range(opt['num_epochs']):
         world.abot.observe({'reward': reward, 'episode_done': True})
 
         optimizer.step()
+        print("STEP DONE")
 
     #---------------------------------------------------------------------------------------------
     # training and validation metrics
