@@ -4,6 +4,7 @@ import math
 import torch
 from torch import nn
 from torch.autograd import Variable
+from torch.autograd import backward as autograd_backward
 
 from parlai.core.agents import Agent
 
@@ -45,9 +46,20 @@ class ChatBotAgent(Agent, nn.Module):
     def observe(self, observation):
         """Given an input token, interact for next round."""
         self.observation = observation
-        if observation.get('episode_done'):
-            return
 
+        # if reward received, then reinforce it and backward pass on actions
+        if observation.get('episode_done'):
+            if observation.get('reward') is not None:
+                for action in self.actions:
+                    action.reinforce(observation['reward'])
+                autograd_backward(self.actions,
+                                  [None for _ in self.actions],
+                                  retain_graph=True)
+
+                # clamp all gradients between (-5, 5)
+                for parameter in self.parameters():
+                    parameter.grad.data.clamp_(min=-5, max=5)
+            return
         # embed and pass through LSTM
         token_embeds = self.in_net(observation['text'])
 
@@ -74,11 +86,6 @@ class ChatBotAgent(Agent, nn.Module):
             self.actions.append(actions)
         return {'text': actions.squeeze(1), 'id': self.id}
 
-    def reinforce(self, reward):
-        """Reinforce each state wth reward."""
-        for action in self.actions:
-            action.reinforce(reward)
-
     def reset(self, retain_actions=False):
         """Reset model and actions."""
         self.h_state = torch.Tensor()
@@ -90,7 +97,6 @@ class ChatBotAgent(Agent, nn.Module):
 
         if not retain_actions:
             self.actions = []
-        super(ChatBotAgent, self).reset()
 
     def train(self):
         """Switch to training mode."""
@@ -100,7 +106,7 @@ class ChatBotAgent(Agent, nn.Module):
         """Switch to evaluation mode."""
         self.eval_flag = True
 
-    def forward(self, *inputs):
+    def forward(self):
         """Dummy forward pass."""
         pass
 
@@ -158,10 +164,6 @@ class Questioner(ChatBotAgent):
 
         # return prediction
         return guess_tokens, guess_distr
-
-    def embed_task(self, tasks):
-        """Embed the image."""
-        return self.in_net(tasks + self.task_offset)
 
 
 class Answerer(ChatBotAgent):

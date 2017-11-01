@@ -21,24 +21,19 @@ class QAWorld(DialogPartnerWorld):
             self.qbot.reset(retain_actions=False)
             self.abot.reset(retain_actions=False)
 
-            # get image representation
+            # get task embedding and image representation
             self.episode_batch['image_embed'] = self.abot.embed_image(self.episode_batch['image'])
-
             # ask multiple rounds of questions and record conversation
             self.acts = []
 
-            # answer first question, which was from the dataset
-            abot_ans = {
+            # qbot start with task embedding
+            self.qbot.observe({
                 'text': self.episode_batch['task'] + self.qbot.task_offset,
-                'id': self.abot.id
-            }
+                'id': self.id
+            })
 
-            # observe answer, ask q_r and observe q_r as well
-            self.qbot.observe(abot_ans)
-
+        # qbot ask a question and observe it as well
         qbot_ques = self.qbot.act()
-
-        # clone and randomize a bit
         qbot_ques['text'] = qbot_ques['text'].detach()
         self.qbot.observe({
             'text': qbot_ques['text'] + self.qbot.listen_offset,
@@ -49,7 +44,7 @@ class QAWorld(DialogPartnerWorld):
         if not self.opt['remember']:
             self.abot.reset(retain_actions=True)
 
-        # observe question and image, also observe answer
+        # observe question and image embedding, also observe answer
         self.abot.observe({
             'text': qbot_ques['text'],
             'id': self.qbot.id,
@@ -64,7 +59,5 @@ class QAWorld(DialogPartnerWorld):
             'id': self.abot.id,
             'image': self.episode_batch['image_embed']
         })
-
-        self.acts.extend([qbot_ques, abot_ans])
         self.qbot.observe(abot_ans)
-
+        self.acts.extend([qbot_ques, abot_ans])

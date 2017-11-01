@@ -20,8 +20,11 @@ class ShapesQADataset(Dataset):
     opt : dict
     attributes : list
     properties : dict
-    task_defn : list
-    data : list
+    task_defn : torch.LongTensor
+    data : torch.LongTensor
+    vocab_task : dict
+    vocab_attr_val : dict
+    range_indices : torch.LongTensor
     """
 
     def __init__(self, opt, dtype='train'):
@@ -63,7 +66,7 @@ class ShapesQADataset(Dataset):
         return {'image': image, 'task': task, 'labels': labels}
 
     def get_batch(self, current_pred=None):
-        """Get a batch."""
+        """Get a batch randomly sampled from data."""
         indices = [random.randint(0, len(self.data) - 1) for _ in range(self.opt['batch_size'])]
         indices = torch.LongTensor(indices)
 
