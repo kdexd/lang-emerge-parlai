@@ -18,21 +18,21 @@ if __name__ == '__main__':
 
     ATTRIBUTES = ['color', 'shape', 'style']
     if opt['size'] == 'normal':
-        PROPS = {
+        PROPERTIES = {
             'color': ['red', 'green', 'blue', 'purple'],
             'shape': ['square', 'triangle', 'circle', 'star'],
             'style': ['dotted', 'solid', 'filled', 'dashed']
         }
     else:
-        PROPS = {
+        PROPERTIES = {
             'color': ['red', 'green', 'blue', 'purple', 'yellow', 'cyan', 'orange', 'teal'],
             'shape': ['square', 'triangle', 'circle', 'star', 'heart', 'pentagon', 'hexagon',
                       'ring'],
             'style': ['dotted', 'solid', 'filled', 'dashed', 'hstripe', 'vstripe', 'hgradient',
                       'vgradient']
         }
-
-    data_verbose = list(itertools.product(*PROPS.values()))
+    # PROPS.values() not used directly to maintain order
+    data_verbose = list(itertools.product(*[PROPERTIES[key] for key in ATTRIBUTES]))
 
     # randomly select train and rest of it is test
     SPLIT_DATA = {}
@@ -40,12 +40,11 @@ if __name__ == '__main__':
     SPLIT_DATA['train'] = [sample for sample in data_verbose if sample not in SPLIT_DATA['val']]
 
     TASK_DEFN = [[0, 1], [1, 0], [0, 2],
-                 [2, 0], [1, 2], [2, 1],
-                 [0, 0], [1, 1], [2, 2]]
+                 [2, 0], [1, 2], [2, 1]]
 
     TO_SAVE = {
         'attributes': ATTRIBUTES,
-        'props': PROPS,
+        'properties': PROPERTIES,
         'task_defn': TASK_DEFN,
         'split_data': SPLIT_DATA
     }

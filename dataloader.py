@@ -1,6 +1,5 @@
 from __future__ import print_function
 from functools import reduce
-import itertools
 import json
 import random
 
@@ -11,63 +10,69 @@ from parlai.core.agents import Agent
 
 
 class ShapesQADataset(Dataset):
-    def __init__(self, opt, type='train'):
-        self.q_out_vocab = opt['q_out_vocab']
-        self.a_out_vocab = opt['a_out_vocab']
+    """Custom dataset to represent synthetic training examples (shape,
+    color, style). This dataset inherits from ``torch.utils.data.Dataset``.
+    Apart from list-style indexng, it has features to pull out a batch of
+    examples randomly as well as retrieve all the examples.
+
+    Attributes
+    ----------
+    opt : dict
+    attributes : list
+    properties : dict
+    task_defn : list
+    data : list
+    """
+
+    def __init__(self, opt, dtype='train'):
+        self.opt = opt
 
         # load dataset from file
         with open(opt['data_path'], 'r') as infile:
             loaded = json.load(infile)
             self.attributes = loaded['attributes']
-            self.props = loaded['props']
-            self.task_defn = loaded['task_defn']
-            self.task_select = torch.LongTensor(loaded['task_defn'])
-            self.data = loaded['split_data'][type]
-
-        # number of single and pair wise tasks
-        self.num_pair_tasks = 6
-        self.num_single_tasks = 3
+            self.properties = loaded['properties']
+            self.task_defn = torch.LongTensor(loaded['task_defn'])
+            self.data = loaded['split_data'][dtype]
 
         # create a vocab map for field values (associate each attribute value with a number)
-        attr_vals = reduce(lambda x, y: x + y, [self.props[attr] for attr in self.attributes])
+        attr_vals = reduce(lambda x, y: x + y, [self.properties[attr] for attr in self.attributes])
         self.vocab_task = {index: value for index, value in enumerate(self.attributes)}
-        self.vocab_attr = {index: value for index, value in enumerate(attr_vals)}
-        inv_vocab_attr = {value: index for index, value in self.vocab_attr.items()}
+        self.vocab_attr_val = {index: value for index, value in enumerate(attr_vals)}
+        inv_vocab_attr_val = {value: index for index, value in self.vocab_attr_val.items()}
 
-        # get encoding for attribute pairs
-        attr_pair = itertools.product(attr_vals, repeat=2)
-        self.vocab_attr_pair = {index: value for index, value in enumerate(attr_pair)}
-
-        ddata = torch.LongTensor(len(self.data), len(self.props))
+        data_tensor = torch.LongTensor(len(self.data), len(self.properties))
         for index, attr_set in enumerate(self.data):
-            ddata[index] = torch.LongTensor([inv_vocab_attr[attr] for attr in attr_set])
-        self.data = ddata
-
+            data_tensor[index] = torch.LongTensor([inv_vocab_attr_val[attr] for attr in attr_set])
+        self.data = data_tensor
         self.range_indices = torch.arange(0, len(self.data)).long()
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, index):
-        task = torch.Tensor([random.randint(0, self.num_pair_tasks - 1)]).long()
-        example = self.data[index]
+        image = self.data[index]
+        task = random.randint(0, len(self.task_defn) - 1)
 
         # now sample predictions based on task
-        select_index = self.task_select[task[0]].long()
-        labels = example.gather(0, select_index)
+        select_index = torch.LongTensor(self.task_defn[task])
+        labels = image.gather(0, torch.LongTensor(select_index))
+        task = torch.LongTensor([task])
+        if self.opt['use_gpu']:
+            image, task, labels = image.cuda(), task.cuda(), labels.cuda()
+        return {'image': image, 'task': task, 'labels': labels}
 
-        return {'image': example, 'task': task, 'labels': labels}
-
-    def get_batch(self, batch_size, current_pred=None, neg_fraction=0.8):
+    def get_batch(self, current_pred=None):
         """Get a batch."""
-        tasks = torch.LongTensor(batch_size).random_(0, self.num_pair_tasks - 1)
-        indices = torch.LongTensor(batch_size).random_(0, len(self.data) - 1)
+        indices = [random.randint(0, len(self.data) - 1) for _ in range(self.opt['batch_size'])]
+        indices = torch.LongTensor(indices)
 
         if current_pred is not None:
             # fill the first batch_size / 2 based on previously misclassified examples
-            neg_indices = current_pred.view(-1, self.num_pair_tasks).sum(1) < self.num_pair_tasks
+            neg_indices = current_pred.view(
+                -1, len(self.task_defn)).sum(1) < len(self.task_defn)
             neg_indices = self.range_indices.masked_select(neg_indices)
-            neg_batch_size = int(batch_size * neg_fraction)
+            neg_batch_size = int(self.opt['batch_size'] * self.opt['neg_fraction'])
             # sample from this
             neg_samples = torch.LongTensor(neg_batch_size).fill_(0)
             if neg_indices.size(0) > 1:
@@ -76,44 +81,48 @@ class ShapesQADataset(Dataset):
             indices[:neg_batch_size] = neg_indices
         images = self.data[indices]
 
+        tasks = torch.Tensor([random.randint(0, len(self.task_defn) - 1)
+                              for _ in range(self.opt['batch_size'])]).long()
         # now sample predictions based on task
-        select_indices = self.task_select[tasks]
+        select_indices = self.task_defn[tasks]
         labels = images.gather(1, select_indices)
-
+        if self.opt['use_gpu']:
+            images, tasks, labels = images.cuda(), tasks.cuda(), labels.cuda()
         return {'image': images, 'task': tasks, 'labels': labels}
 
     def get_complete_data(self):
         """Get all configurations."""
         # expand self.data three folds, along with labels
-        images = self.data.unsqueeze(0).repeat(1, 1, self.num_pair_tasks)
-        images = images.view(-1, len(self.props))
-        tasks = torch.arange(0, self.num_pair_tasks).long()
+        images = self.data.unsqueeze(0).repeat(1, 1, len(self.task_defn))
+        images = images.view(-1, len(self.properties))
+        tasks = torch.arange(0, len(self.task_defn)).long()
         tasks = tasks.unsqueeze(0).repeat(1, len(self.data)).view(-1)
 
         # now sample predictions based on task
-        select_indices = self.task_select[tasks]
+        select_indices = self.task_defn[tasks]
         labels = images.gather(1, select_indices)
-
+        if self.opt['use_gpu']:
+            images, tasks, labels = images.cuda(), tasks.cuda(), labels.cuda()
         return {'image': images, 'task': tasks, 'labels': labels}
 
-    def reformat_talk(self, talk, preds, images, tasks, labels):
-        """Convert to text."""
+    def pretty_print(self, talk, preds, batch):
+        """Pretty print result."""
+        images, tasks, labels = batch['image'].data, batch['task'].data, batch['labels']
         script = []
-        if self.q_out_vocab < 4:
-            a_vocab = [str(ii) for ii in range(self.a_out_vocab)]
-            q_vocab = [chr(ii + 88) for ii in range(self.q_out_vocab)]
+        if self.opt['q_out_vocab'] < 4:
+            q_vocab = [chr(i + 88) for i in range(self.opt['q_out_vocab'])]
+            a_vocab = [str(i) for i in range(self.opt['a_out_vocab'])]
         else:
-            a_vocab = ['a-%d' % ii for ii in range(self.a_out_vocab)]
-            q_vocab = ['q-%d' % ii for ii in range(self.q_out_vocab)]
+            q_vocab = ['Q%d' % i for i in range(self.opt['q_out_vocab'])]
+            a_vocab = ['A%d' % i for i in range(self.opt['a_out_vocab'])]
 
         for i in range(images.size(0)):
             # conversation
             conv = {}
-            conv['image'] = [self.vocab_attr[j] for j in images[i].data]
-            conv['gt'] = [self.vocab_attr[labels[i, j]] for j in range(2)]
-            conv['task'] = [self.vocab_task[j] for j in self.task_select[tasks[i].data].squeeze()]
-            conv['pred'] = [self.vocab_attr[preds[j].data[i, 0]]
-                              for j in range(2)]
+            conv['image'] = [self.vocab_attr_val[j] for j in images[i]]
+            conv['gt'] = [self.vocab_attr_val[labels[i, j]] for j in range(2)]
+            conv['task'] = [self.vocab_task[j] for j in self.task_defn[tasks[i]].squeeze()]
+            conv['pred'] = [self.vocab_attr_val[preds[j].data[i, 0]] for j in range(2)]
             conv['chat'] = [q_vocab[talk[0]['text'].data[i]],
                             a_vocab[talk[1]['text'].data[i]]]
             if len(talk) > 3:
@@ -122,21 +131,12 @@ class ShapesQADataset(Dataset):
             script.append(conv)
 
         # re-arrange such that negative examples are on the top
-        wrong_ex = []
-        for i in script:
-            if i['gt'] != i['pred']:
-                wrong_ex.append(i)
-
-        # remove wrong Ex from script
+        wrong_ex = [conv for conv in script if conv['gt'] != conv['pred']]
         for ex in wrong_ex:
             script.remove(ex)
         script = wrong_ex + script
-        return script
 
-    @staticmethod
-    def pretty_print(talk):
-        """Pretty print result."""
-        for conv in talk:
+        for conv in script:
             # first print image, task
             print('Im: %s -  Task: %s' % (conv['image'], conv['task']))
             # print conversation

@@ -22,8 +22,8 @@ qa = {
     'val': ShapesQADataset(opt, 'val')
 }
 # pull out few attributes from dataset in main opts for other bots to use
-opt['props'] = qa['train'].props
-opt['task_vocab'] = qa['train'].task_select.shape[0]
+opt['props'] = qa['train'].properties
+opt['task_vocab'] = len(qa['train'].task_defn)
 
 #------------------------------------------------------------------------
 # setup experiment
@@ -53,9 +53,9 @@ for epoch_id in range(opt['num_epochs']):
         optimizer.zero_grad()
 
         if 'train' in matches:
-            batch = qa['train'].get_batch(opt['batch_size'], matches['train'], opt['neg_fraction'])
+            batch = qa['train'].get_batch(matches['train'])
         else:
-            batch = qa['train'].get_batch(opt['batch_size'])
+            batch = qa['train'].get_batch()
 
         batch['image'], batch['task'] = autograd.Variable(batch['image']), \
                                         autograd.Variable(batch['task'])
@@ -71,6 +71,7 @@ for epoch_id in range(opt['num_epochs']):
         # compute reward for this batch
         reward = torch.Tensor(opt['batch_size'], 1).fill_(- 10 * opt['rl_scale'])
 
+        qa['train'].pretty_print(world.acts, guess_token, batch)
         # both attributes need to match
         first_match = guess_token[0].data == batch['labels'][:, 0:1]
         second_match = guess_token[1].data == batch['labels'][:, 1:2]
