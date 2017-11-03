@@ -1,5 +1,7 @@
 from __future__ import division
 
+import os
+
 import torch
 from torch.autograd import Variable
 from parlai.core.worlds import DialogPartnerWorld
@@ -61,3 +63,9 @@ class QAWorld(DialogPartnerWorld):
         })
         self.qbot.observe(abot_ans)
         self.acts.extend([qbot_ques, abot_ans])
+
+    def save_agents(self, save_path):
+        """Save complete world with all the agents required to reload later."""
+        qbot_state_dict = self.qbot.state_dict()
+        abot_state_dict = self.abot.state_dict()
+        torch.save({'qbot': qbot_state_dict, 'abot': abot_state_dict, 'opt': self.opt}, save_path)

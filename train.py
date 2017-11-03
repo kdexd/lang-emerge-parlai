@@ -1,5 +1,8 @@
 from __future__ import division
 
+from datetime import datetime
+import os
+
 import numpy as np
 import torch
 from torch import optim
@@ -16,12 +19,17 @@ from world import QAWorld
 opt = options.read()
 
 #-------------------------------------------------------------------------------------------------
-# setup dataset
+# setup dataset and opts
 #-------------------------------------------------------------------------------------------------
 dataset = ShapesQADataset(opt)
 # pull out few attributes from dataset in main opts for other bots to use
 opt['props'] = dataset.properties
 opt['task_vocab'] = len(dataset.task_defn)
+
+# make a directory to save checkpoints
+timestamp = datetime.strftime(datetime.utcnow(), '%a-%d-%b-%Y-%X')
+opt['save_path'] = os.path.join(opt['save_path'], 'world-{}'.format(timestamp))
+os.makedirs(opt['save_path'])
 
 #-------------------------------------------------------------------------------------------------
 # setup experiment
@@ -94,7 +102,6 @@ for epoch_id in range(opt['num_epochs']):
         world.abot.observe({'reward': reward, 'episode_done': True})
 
         optimizer.step()
-        print("STEP DONE")
 
     #---------------------------------------------------------------------------------------------
     # training and validation metrics
@@ -125,3 +132,18 @@ for epoch_id in range(opt['num_epochs']):
     # break if train accuracy reaches 100%
     if accuracy['train'] == 100:
         break
+
+    #---------------------------------------------------------------------------------------------
+    # saving checkpoints
+    #---------------------------------------------------------------------------------------------
+    if epoch_id % opt['save_epoch'] == 0:
+        save_path = os.path.join(opt['save_path'], 'world_epoch_{}.pth'.format(epoch_id))
+        world.save_agents(save_path)
+
+#-------------------------------------------------------------------------------------------------
+# save final world checkpoint with a time stamp
+#-------------------------------------------------------------------------------------------------
+timestamp = datetime.strftime(datetime.utcnow(), '%a-%d-%b-%Y-%X')
+final_save_path = os.path.join(opt['self_path'], 'final_world_{}.pth'.format(timestamp))
+print('Saving at final world at: {}'.format(final_save_path))
+world.save_agents(final_save_path)

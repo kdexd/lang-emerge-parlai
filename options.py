@@ -35,5 +35,9 @@ def read():
                         help='Max number of epochs to run')
     parser.add_argument('--learning-rate', default=1e-3, type=float,
                         help='Initial learning rate')
+    parser.add_argument('--save-epoch', default=100, type=int,
+                        help='Save model at regular intervals of epochs.')
+    parser.add_argument('--save-path', default='checkpoints', type=str,
+                        help='Directory path to save checkpoints.')
     parser.add_argument('--use-gpu', dest='use_gpu', action='store_true')
     return parser.parse_args()
