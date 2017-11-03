@@ -31,13 +31,13 @@ def read():
     parser.add_argument_group('Optimization Hyperparameters')
     parser.add_argument('--batch-size', default=1000, type=int,
                         help='Batch size during training')
-    parser.add_argument('--num-epochs', default=10000, type=int,
+    parser.add_argument('--num-epochs', default=1000000, type=int,
                         help='Max number of epochs to run')
-    parser.add_argument('--learning-rate', default=1e-3, type=float,
+    parser.add_argument('--learning-rate', default=1e-2, type=float,
                         help='Initial learning rate')
     parser.add_argument('--save-epoch', default=100, type=int,
                         help='Save model at regular intervals of epochs.')
     parser.add_argument('--save-path', default='checkpoints', type=str,
                         help='Directory path to save checkpoints.')
-    parser.add_argument('--use-gpu', dest='use_gpu', action='store_true')
+    parser.add_argument('--use-gpu', dest='use_gpu', default=True, action='store_true')
     return parser.parse_args()

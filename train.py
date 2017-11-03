@@ -103,6 +103,14 @@ for epoch_id in range(opt['num_epochs']):
 
         optimizer.step()
 
+        #-----------------------------------------------------------------------------------------
+        # logging metrics
+        #-----------------------------------------------------------------------------------------
+        if (NUM_ITER_PER_EPOCH * epoch_id + iter_id) % 100 == 0:
+            timestamp = datetime.strftime(datetime.utcnow(), '%a, %d %b %Y %X')
+            print('[%s][Iter: %d][Epoch: %.2f][Reward: %.4f][Train Acc.: %.2f Val Acc.: %.2f]' % \
+                  (timestamp, NUM_ITER_PER_EPOCH * epoch_id + iter_id, epoch_id,
+                   world.cumulative_reward, accuracy['train'], accuracy['val']))
     #---------------------------------------------------------------------------------------------
     # training and validation metrics
     #---------------------------------------------------------------------------------------------
@@ -144,6 +152,6 @@ for epoch_id in range(opt['num_epochs']):
 # save final world checkpoint with a time stamp
 #-------------------------------------------------------------------------------------------------
 timestamp = datetime.strftime(datetime.utcnow(), '%a-%d-%b-%Y-%X')
-final_save_path = os.path.join(opt['self_path'], 'final_world_{}.pth'.format(timestamp))
+final_save_path = os.path.join(opt['save_path'], 'final_world_{}.pth'.format(timestamp))
 print('Saving at final world at: {}'.format(final_save_path))
 world.save_agents(final_save_path)

@@ -183,7 +183,7 @@ class Answerer(ChatBotAgent):
         self.img_net = nn.Embedding(num_attrs, self.opt['img_feat_size'])
         self.rnn = nn.LSTMCell(rnn_input_size, self.opt['hidden_size'])
 
-        # xavier init of in_net and out_net
+        # xavier init of img_net and rnn
         for module in {self.img_net, self.rnn}:
             module = xavier_init(module)
 
