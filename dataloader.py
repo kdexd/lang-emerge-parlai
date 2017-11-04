@@ -110,16 +110,16 @@ class ShapesQADataset(Dataset):
             images, tasks, labels = images.cuda(), tasks.cuda(), labels.cuda()
         return {'image': images, 'task': tasks, 'labels': labels}
 
-    def pretty_print(self, talk, preds, batch):
-        """Pretty print result."""
+    def talk_to_script(self, talk, preds, batch):
+        """COnverts talk of agents to a list of json objects, useful for saving and printing."""
         images, tasks, labels = batch['image'].data, batch['task'].data, batch['labels']
         script = []
         if self.opt['q_out_vocab'] < 4:
-            q_vocab = [chr(i + 88) for i in range(self.opt['q_out_vocab'])]
-            a_vocab = [str(i) for i in range(self.opt['a_out_vocab'])]
+            q_vocab = [chr(i + 88) for i in range(self.opt['q_out_vocab'])]  # X, Y, Z
+            a_vocab = [str(i) for i in range(self.opt['a_out_vocab'])]       # 1, 2, 3
         else:
-            q_vocab = ['Q%d' % i for i in range(self.opt['q_out_vocab'])]
-            a_vocab = ['A%d' % i for i in range(self.opt['a_out_vocab'])]
+            q_vocab = ['Q%d' % i for i in range(self.opt['q_out_vocab'])]    # Q1, Q2, Q3, Q4...
+            a_vocab = ['A%d' % i for i in range(self.opt['a_out_vocab'])]    # A1, A2, A3, A4...
 
         for i in range(images.size(0)):
             # conversation
@@ -140,13 +140,14 @@ class ShapesQADataset(Dataset):
         for ex in wrong_ex:
             script.remove(ex)
         script = wrong_ex + script
+        return script
 
+    @staticmethod
+    def pretty_print(script):
+        """Pretty print as conversation."""
         for conv in script:
-            # first print image, task
             print('Im: %s -  Task: %s' % (conv['image'], conv['task']))
-            # print conversation
-            print('\tQ1 : %s \t A1: %s' % (conv['chat'][0], conv['chat'][1]))
-            print('\tQ2 : %s \t A2: %s' % (conv['chat'][2], conv['chat'][3]))
-            # print GT and prediction
+            print('\tQ1: %s\t A1: %s' % (conv['chat'][0], conv['chat'][1]))
+            print('\tQ2: %s\t A2: %s' % (conv['chat'][2], conv['chat'][3]))
             print('\tGT: %s\tPred: %s' % (conv['gt'], conv['pred']))
-            print('--------------------\n')
+            print('-' * 59)
