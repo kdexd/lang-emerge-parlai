@@ -24,7 +24,7 @@ class QAWorld(DialogPartnerWorld):
             self.abot.reset(batch_size=self.episode_batch['task'].size(0), retain_actions=False)
 
             # get task embedding and image representation
-            self.episode_batch['image_embed'] = self.abot.embed_image(self.episode_batch['image'])
+            self.episode_batch['image'] = self.abot.embed_image(self.episode_batch['image'])
             # ask multiple rounds of questions and record conversation
             self.acts = []
 
@@ -50,7 +50,7 @@ class QAWorld(DialogPartnerWorld):
         self.abot.observe({
             'text': qbot_ques['text'],
             'id': self.qbot.id,
-            'image': self.episode_batch['image_embed']
+            'image': self.episode_batch['image']
         })
         abot_ans = self.abot.act()
 
@@ -59,7 +59,7 @@ class QAWorld(DialogPartnerWorld):
         self.abot.observe({
             'text': abot_ans['text'] + self.abot.listen_offset,
             'id': self.abot.id,
-            'image': self.episode_batch['image_embed']
+            'image': self.episode_batch['image']
         })
         self.qbot.observe(abot_ans)
         self.acts.extend([qbot_ques, abot_ans])

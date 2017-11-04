@@ -64,7 +64,7 @@ class ShapesQADataset(Dataset):
             image, task, labels = image.cuda(), task.cuda(), labels.cuda()
         return {'image': image, 'task': task, 'labels': labels}
 
-    def get_batch(self, dtype, current_pred=None):
+    def random_batch(self, dtype, current_pred=None):
         """Get a batch randomly sampled from data."""
         indices = [random.randint(0, len(self.data[dtype]) - 1)
                    for _ in range(self.opt['batch_size'])]
@@ -95,7 +95,7 @@ class ShapesQADataset(Dataset):
             images, tasks, labels = images.cuda(), tasks.cuda(), labels.cuda()
         return {'image': images, 'task': tasks, 'labels': labels}
 
-    def get_complete_data(self, dtype):
+    def complete_data(self, dtype):
         """Get all configurations."""
         # expand self.data three folds, along with labels
         images = self.data[dtype].unsqueeze(0).repeat(1, 1, len(self.task_defn))
