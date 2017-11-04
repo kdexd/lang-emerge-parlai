@@ -19,7 +19,7 @@ from world import QAWorld
 OPT = options.read()
 
 # seed random for reproducibility
-if OPT['use_gpu']:
+if OPT.get('use_gpu'):
     torch.cuda.manual_seed_all(1337)
 else:
     torch.manual_seed(1337)
@@ -44,7 +44,7 @@ questioner = Questioner(OPT)
 answerer = Answerer(OPT)
 # this reward tensor is re-used every iteration
 reward = torch.Tensor(OPT['batch_size'], 1).fill_(- 10 * OPT['rl_scale'])
-if OPT['use_gpu']:
+if OPT.get('use_gpu'):
     questioner, answerer, reward = questioner.cuda(), answerer.cuda(), reward.cuda()
 print('Questioner and Answerer Bots: ')
 print(questioner)
@@ -132,7 +132,7 @@ for epoch_id in range(OPT['num_epochs']):
         batch['task'] = Variable(batch['task'], volatile=True)
         world.qbot.observe({'batch': batch, 'episode_done': True})
 
-        for round in range(OPT['num_rounds']):
+        for _ in range(OPT['num_rounds']):
             world.parley()
         # compute accuracy for color, shape, and both
         guess_token, guess_distr = world.qbot.predict(batch['task'], 2)

@@ -91,7 +91,7 @@ class ChatBotAgent(Agent, nn.Module):
             batch_size = self.opt['batch_size']
         self.h_state = Variable(torch.zeros(batch_size, self.opt['hidden_size']))
         self.c_state = Variable(torch.zeros(batch_size, self.opt['hidden_size']))
-        if self.opt['use_gpu']:
+        if self.opt.get('use_gpu'):
             self.h_state, self.c_state = self.h_state.cuda(), self.c_state.cuda()
 
         if not retain_actions:

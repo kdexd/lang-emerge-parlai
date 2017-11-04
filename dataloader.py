@@ -60,7 +60,7 @@ class ShapesQADataset(Dataset):
         select_index = torch.LongTensor(self.task_defn[task])
         labels = image.gather(0, torch.LongTensor(select_index))
         task = torch.LongTensor([task])
-        if self.opt['use_gpu']:
+        if self.opt.get('use_gpu'):
             image, task, labels = image.cuda(), task.cuda(), labels.cuda()
         return {'image': image, 'task': task, 'labels': labels}
 
@@ -91,7 +91,7 @@ class ShapesQADataset(Dataset):
         # now sample predictions based on task
         select_indices = self.task_defn[tasks]
         labels = images.gather(1, select_indices)
-        if self.opt['use_gpu']:
+        if self.opt.get('use_gpu'):
             images, tasks, labels = images.cuda(), tasks.cuda(), labels.cuda()
         return {'image': images, 'task': tasks, 'labels': labels}
 
@@ -106,7 +106,7 @@ class ShapesQADataset(Dataset):
         # now sample predictions based on task
         select_indices = self.task_defn[tasks]
         labels = images.gather(1, select_indices)
-        if self.opt['use_gpu']:
+        if self.opt.get('use_gpu'):
             images, tasks, labels = images.cuda(), tasks.cuda(), labels.cuda()
         return {'image': images, 'task': tasks, 'labels': labels}
 
@@ -127,12 +127,12 @@ class ShapesQADataset(Dataset):
             conv['image'] = [self.vocab_attr_val[j] for j in images[i]]
             conv['gt'] = [self.vocab_attr_val[labels[i, j]] for j in range(2)]
             conv['task'] = [self.vocab_task[j] for j in self.task_defn[tasks[i]].squeeze()]
-            conv['pred'] = [self.vocab_attr_val[preds[j].data[i, 0]] for j in range(2)]
+            conv['pred'] = [self.vocab_attr_val[preds[j].data[i]] for j in range(2)]
             conv['chat'] = [q_vocab[talk[0]['text'].data[i]],
                             a_vocab[talk[1]['text'].data[i]]]
-            if len(talk) > 3:
-                conv['chat'].extend([q_vocab[talk[2]['text'].data[i]],
-                                     a_vocab[talk[3]['text'].data[i]]])
+            for j in range(2, len(talk), 2):
+                conv['chat'].extend([q_vocab[talk[j]['text'].data[i]],
+                                     a_vocab[talk[j + 1]['text'].data[i]]])
             script.append(conv)
 
         # re-arrange such that negative examples are on the top
