@@ -43,7 +43,7 @@ class QAWorld(DialogPartnerWorld):
         })
 
         # forget answer if abot is memory-less
-        if not self.opt['remember']:
+        if self.opt['memoryless_abot']:
             self.abot.reset(batch_size=self.episode_batch['task'].size(0), retain_actions=True)
 
         # observe question and image embedding, also observe answer

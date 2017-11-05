@@ -35,12 +35,12 @@ class ChatBotAgent(Agent, nn.Module):
         self.actions = []
 
         # modules (common)
-        self.in_net = nn.Embedding(self.opt['in_vocab_size'], self.opt['embed_size'])
-        self.out_net = nn.Linear(self.opt['hidden_size'], self.opt['out_vocab_size'])
+        self.listen_net = nn.Embedding(self.opt['in_vocab_size'], self.opt['embed_size'])
+        self.speak_net = nn.Linear(self.opt['hidden_size'], self.opt['out_vocab_size'])
         self.softmax = nn.Softmax()
 
-        # xavier init of in_net and out_net
-        for module in {self.in_net, self.out_net}:
+        # xavier init of listen_net and speak_net
+        for module in {self.listen_net, self.speak_net}:
             module = xavier_init(module)
 
     def observe(self, observation):
@@ -59,7 +59,7 @@ class ChatBotAgent(Agent, nn.Module):
                     parameter.grad.data.clamp_(min=-5, max=5)
             return
         # embed and pass through LSTM
-        token_embeds = self.in_net(observation['text'])
+        token_embeds = self.listen_net(observation['text'])
 
         # concat with image representation
         if 'image' in observation:
@@ -72,7 +72,7 @@ class ChatBotAgent(Agent, nn.Module):
     def act(self):
         """Speak a token."""
         # compute softmax and choose a token
-        out_distr = self.softmax(self.out_net(self.h_state))
+        out_distr = self.softmax(self.speak_net(self.h_state))
 
         # if evaluating
         if self.eval_flag:
@@ -142,7 +142,7 @@ class Questioner(ChatBotAgent):
 
         for _ in range(num_tokens):
             # explicit task dependence
-            task_embeds = self.in_net(tasks)
+            task_embeds = self.listen_net(tasks)
             task_embeds = task_embeds.squeeze()
             # compute softmax and choose a token
             self.h_state, self.c_state = self.predict_rnn(
