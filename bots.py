@@ -1,3 +1,10 @@
+"""Module with classes for questioner and answerer bots. A generic ChatBotAgent is defined,
+which is extended separate by Questioner and Answerer bot classes.
+
+Refer ParlAI docs on general semantics of a ParlAI Agent:
+    * http://parl.ai/static/docs/basic_tutorial.html#agents
+    * http://parl.ai/static/docs/agents.html#parlai.core.agents.Agent
+"""
 from __future__ import absolute_import, division
 import math
 
@@ -10,6 +17,7 @@ from parlai.core.agents import Agent
 
 
 def xavier_init(module):
+    """Xavier initializer for module parameters."""
     for parameter in module.parameters():
         if len(parameter.data.shape) == 1:
             # 1D vector means bias
@@ -22,7 +30,32 @@ def xavier_init(module):
 
 
 class ChatBotAgent(Agent, nn.Module):
-    """Parent class for both, questioner and answerer bots."""
+    """Parent class for both, questioner and answerer bots. Extends a ParlAI Agent and PyTorch
+    module. This class is generic implementation of how a bot should look like / act and observe
+    in a generic ParlAI dialog world. It comprises of state tensor, actions list and
+    observation dict.
+
+    This parent class provides a ``listen_net`` embedding module to embed the text tokens. Also,
+    ``speak_net`` module takes out a token to be given as action, based on state of agent. Both
+    questioner and answerer agents observe and act in a generic way.
+
+    Attributes
+    ----------
+    opt : dict
+        Command-line opts passed into constructor from the world.
+    observation : dict
+        Observations dict exchanged during dialogs and on starting fresh episode. Has keys as
+        described in ParlAI docs ('text', 'image', 'episode_done', 'reward').
+    actions : list
+        List of action tensors by agent, acted in the current dialog episode.
+    h_state, c_state : torch.autograd.Variable
+        State of the agent.
+    eval_flag : boolean
+        Flag indicating whether agent in training or evaluation mode.
+    listen_net : nn.Embedding
+    speak_net : nn.Linear
+    softmax : nn.Softmax
+    """
     def __init__(self, opt, shared=None):
         super(ChatBotAgent, self).__init__(opt, shared)
         nn.Module.__init__(self)
@@ -46,9 +79,19 @@ class ChatBotAgent(Agent, nn.Module):
     def observe(self, observation):
         """Given an input token, interact for next round."""
         self.observation = observation
+        if not observation.get('episode_done'):
+            # embed and pass through LSTM
+            token_embeds = self.listen_net(observation['text'])
 
-        # if reward received, then reinforce it and backward pass on actions
-        if observation.get('episode_done'):
+            # concat with image representation (valid for abot)
+            if 'image' in observation:
+                image_embeds = self.embed_image(observation['image'])
+                token_embeds = torch.cat((token_embeds, image_embeds), 1)
+            # remove all dimensions with size one
+            token_embeds = token_embeds.squeeze(1)
+            # update agent state using these tokens
+            self.h_state, self.c_state = self.rnn(token_embeds, (self.h_state, self.c_state))
+        else:
             if observation.get('reward') is not None:
                 for action in self.actions:
                     action.reinforce(observation['reward'])
@@ -57,36 +100,23 @@ class ChatBotAgent(Agent, nn.Module):
                 # clamp all gradients between (-5, 5)
                 for parameter in self.parameters():
                     parameter.grad.data.clamp_(min=-5, max=5)
-            return
-        # embed and pass through LSTM
-        token_embeds = self.listen_net(observation['text'])
-
-        # concat with image representation
-        if 'image' in observation:
-            token_embeds = torch.cat((token_embeds, observation['image']), 1)
-        # remove all dimensions with size one
-        token_embeds = token_embeds.squeeze(1)
-        # now pass it through rnn
-        self.h_state, self.c_state = self.rnn(token_embeds, (self.h_state, self.c_state))
 
     def act(self):
         """Speak a token."""
         # compute softmax and choose a token
         out_distr = self.softmax(self.speak_net(self.h_state))
 
-        # if evaluating
         if self.eval_flag:
             _, actions = out_distr.max(1)
             actions = actions.unsqueeze(1)
         else:
             actions = out_distr.multinomial()
-            # record actions
             self.actions.append(actions)
         return {'text': actions.squeeze(1), 'id': self.id}
 
     def reset(self, batch_size=None, retain_actions=False):
-        """Reset model and actions. opt.batch_size is not used because batch_size is different
-        when complete data is passed on."""
+        """Reset state and actions. ``opt.batch_size`` is not always used because batch_size
+        changes when complete data is passed (for validation)."""
         if batch_size is None:
             batch_size = self.opt['batch_size']
         self.h_state = Variable(torch.zeros(batch_size, self.opt['hidden_size']))
@@ -111,6 +141,29 @@ class ChatBotAgent(Agent, nn.Module):
 
 
 class Questioner(ChatBotAgent):
+    """Questioner bot - extending a ParlAI Agent as well as a PyTorch module. Answerer is modeled
+    as a combination of a speaker network, a listener LSTM, and a prediction network.
+
+    At the start of new episode of dialog, a task is observed by questioner bot, which is embedded
+    via listener LSTM. At each round, questioner observes the answer and acts by modelling the
+    probability of output utterances based on previous state. After observing the reply from
+    answerer, the listener LSTM updates the state by processing both tokens (question/answer) of
+    the dialog exchange. In the final round, the prediction LSTM is unrolled twice to produce
+    questioner's prediction based on the final state and assigned task.
+
+    Attributes
+    ----------
+    rnn : nn.LSTMCell
+        Listener LSTM module. Embedding module before listener is provided by base class.
+    predict_rnn, predict_net : nn.LSTMCell, nn.Linear
+        Collectively form the prediction network module.
+    task_offset : int
+        Offset in terms of one-hot encoding, task vectors come after width equal to question and
+        answer vocabulary.
+    listen_offset : int
+        Offset due to listening response of answer bot. Answer token one-hot vectors would
+        require width equal to answer vocabulary - next question vectors would be after that.
+    """
     def __init__(self, opt, shared=None):
         opt['in_vocab_size'] = opt['q_out_vocab'] + opt['a_out_vocab'] + opt['task_vocab']
         opt['out_vocab_size'] = opt['q_out_vocab']
@@ -120,8 +173,7 @@ class Questioner(ChatBotAgent):
         # always condition on task
         self.rnn = nn.LSTMCell(self.opt['embed_size'], self.opt['hidden_size'])
 
-        # additional prediction network
-        # start token included
+        # additional prediction network, start token included
         num_preds = sum([len(ii) for ii in self.opt['props'].values()])
         # network for predicting
         self.predict_rnn = nn.LSTMCell(self.opt['embed_size'], self.opt['hidden_size'])
@@ -144,9 +196,9 @@ class Questioner(ChatBotAgent):
             # explicit task dependence
             task_embeds = self.listen_net(tasks)
             task_embeds = task_embeds.squeeze()
-            # compute softmax and choose a token
-            self.h_state, self.c_state = self.predict_rnn(
-                task_embeds, (self.h_state, self.c_state))
+            # unroll twice, compute softmax and choose a token
+            self.h_state, self.c_state = self.predict_rnn(task_embeds,
+                                                          (self.h_state, self.c_state))
             out_distr = self.softmax(self.predict_net(self.h_state))
 
             # if evaluating
@@ -166,6 +218,25 @@ class Questioner(ChatBotAgent):
 
 
 class Answerer(ChatBotAgent):
+    """Answerer bot - extending a ParlAI Agent as well as a PyTorch module. Answerer is modeled
+    as a combination of a speaker network, a listener LSTM, and an image encoder.
+
+    While observing, it embeds the received question tokens and concatenates them with image
+    embeds, using them to update its state by listener LSTM. Answerer bot acts by choosing a
+    token based on softmax probabilities obtained after passing the state through speak net. The
+    image encoder embeds each one-hot attribute vector via a linear layer and concatenates all
+    three encodings to obtain a unified image instance representation.
+
+    Attributes
+    ----------
+    rnn : nn.LSTMCell
+        Listener LSTM module. Embedding module before listener is provided by base class.
+    img_net : nn.Embedding
+        Image Instance Encoder module.
+    listen_offset : int
+        Offset due to listening response of question bot. Question token one-hot vectors would
+        require width equal to question vocabulary - answer vectors would be after that.
+    """
     def __init__(self, opt, shared=None):
         opt['in_vocab_size'] = opt['q_out_vocab'] + opt['a_out_vocab']
         opt['out_vocab_size'] = opt['a_out_vocab']
@@ -190,11 +261,10 @@ class Answerer(ChatBotAgent):
         # set offset
         self.listen_offset = opt['q_out_vocab']
 
-    # Embedding the image
-    def embed_image(self, batch):
-        embeds = self.img_net(batch)
-        # concat instead of add
+    def embed_image(self, image):
+        """Embed the image attributes color, shape and style into vectors of length 20 each, and
+        concatenate them to make a feature vector representing the image.
+        """
+        embeds = self.img_net(image)
         features = torch.cat(embeds.transpose(0, 1), 1)
-        # add features
-        #features = torch.sum(embeds, 1).squeeze(1)
         return features
