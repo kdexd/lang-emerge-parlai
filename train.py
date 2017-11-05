@@ -1,5 +1,35 @@
-from __future__ import division
+#!/usr/bin/python3
+"""Script for training the questioner and answerer agents in dialog world. Both agents hold
+multiple rounds of dialoues per episode, after which qbot makes a prediction about the attributes
+of image,  according to the assigned task.
 
+Few global variables defined here are explained:
+
+Global Variables
+----------------
+OPT : dict
+    Command-line arguments. Refer ``options.py``
+
+matches : dict
+    Has keys 'train' and 'val'. Contains tensor of booleans as values. i-th true value represents
+    i-th example's ground truth matching prediction in previous iteration. This dict is useful
+    for sampling negative examples for next iteration training.
+accuracy : dict
+    Has keys 'train' and 'val'. Will have training and validation accuracies updated every epoch.
+    This dict is useful for early stopping mechanism. Training stops if training accuracy hits 1.
+
+reward : torch.FloatTensor or torch.cuda.FloatTensor
+    Tensor of length equal to batch size, sets reward 1 for correctly classified example and -10
+    for negatively classified sample. Re-used every episode.
+cumulative_reward : float
+    Scalar reward for both the bots. Same for both bots as the game is perfectly cooperative.
+
+dataset : ShapesQADataset (torch.utils.data.Dataset)
+questioner : Questioner (parlai.core.agents.Agent, nn.Module)
+answerer : Answerer (parlai.core.agents.Agent, nn.Module)
+world : QAWorld (parlai.core.worlds.DialogPartnerWorld)
+optimizer : optim.Adam
+"""
 from datetime import datetime
 import os
 
@@ -33,7 +63,7 @@ OPT['props'] = dataset.properties
 OPT['task_vocab'] = len(dataset.task_defn)
 
 # make a directory to save checkpoints
-timestamp = datetime.strftime(datetime.utcnow(), '%a-%d-%b-%Y-%X')
+timestamp = datetime.strftime(datetime.utcnow(), '%d-%b-%Y-%X')
 OPT['save_path'] = os.path.join(OPT['save_path'], 'world-{}'.format(timestamp))
 os.makedirs(OPT['save_path'])
 
@@ -61,13 +91,7 @@ optimizer = optim.Adam([{'params': world.abot.parameters(),
 #-------------------------------------------------------------------------------------------------
 NUM_ITER_PER_EPOCH = max(0, int(np.ceil(len(dataset) / OPT['batch_size'])))
 
-"""``matches`` will have a tensor of booleans as values. i-th true value represents i-th example's
-ground truth matching prediction in previous iteration. This dict is useful for sampling negative
-examples for next iteration training."""
 matches = {'train': None, 'val': None}
-
-"""``accuracy`` dict will have training and validation accuracies updated every epoch. This dict
-is useful for early stopping mechanism. Training stops if training accuracy hits 1."""
 accuracy = {'train': 0.0, 'val': 0.0}
 
 for epoch_id in range(OPT['num_epochs']):
@@ -120,11 +144,8 @@ for epoch_id in range(OPT['num_epochs']):
     #---------------------------------------------------------------------------------------------
     # training and validation metrics
     #---------------------------------------------------------------------------------------------
-
-    # switch to evaluation mode
     world.qbot.eval()
     world.abot.eval()
-
     for dtype in ['train', 'val']:
         batch = dataset.complete_data(dtype)
         # make variables volatile because graph construction is not required for eval
@@ -140,8 +161,6 @@ for epoch_id in range(OPT['num_epochs']):
         second_match = guess_token[1].data == batch['labels'][:, 1].long()
         matches[dtype] = first_match & second_match
         accuracy[dtype] = 100 * torch.sum(matches[dtype]) / float(matches[dtype].size(0))
-
-    # switch back to training mode
     world.qbot.train()
     world.abot.train()
 
@@ -153,13 +172,13 @@ for epoch_id in range(OPT['num_epochs']):
     # saving checkpoints
     #---------------------------------------------------------------------------------------------
     if epoch_id % OPT['save_epoch'] == 0:
-        save_path = os.path.join(OPT['save_path'], 'world_epoch_{}.pth'.format(epoch_id))
+        save_path = os.path.join(OPT['save_path'], 'world_epoch_%s.pth' % str(epoch_id).zfill(5))
         world.save_agents(save_path)
 
 #-------------------------------------------------------------------------------------------------
 # save final world checkpoint with a time stamp
 #-------------------------------------------------------------------------------------------------
-timestamp = datetime.strftime(datetime.utcnow(), '%a-%d-%b-%Y-%X')
+timestamp = datetime.strftime(datetime.utcnow(), '%d-%b-%Y-%X')
 final_save_path = os.path.join(OPT['save_path'], 'final_world_{}.pth'.format(timestamp))
 print('Saving at final world at: {}'.format(final_save_path))
 world.save_agents(final_save_path)

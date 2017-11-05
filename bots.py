@@ -85,8 +85,7 @@ class ChatBotAgent(Agent, nn.Module):
 
             # concat with image representation (valid for abot)
             if 'image' in observation:
-                image_embeds = self.embed_image(observation['image'])
-                token_embeds = torch.cat((token_embeds, image_embeds), 1)
+                token_embeds = torch.cat((token_embeds, observation['image']), 1)
             # remove all dimensions with size one
             token_embeds = token_embeds.squeeze(1)
             # update agent state using these tokens
