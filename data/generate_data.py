@@ -1,3 +1,8 @@
+#!/usr/bin/python3
+"""
+Generate the synthetic dataset of shape attributes, and task definitions for Task and Talk Game.
+Refer "Dataset Generation" section in README for relevant details.
+"""
 import itertools
 import json
 import random
@@ -26,8 +31,7 @@ else:
     PROPERTIES = {
         'color': ['red', 'green', 'blue', 'purple', 'yellow', 'cyan', 'orange', 'teal'],
         'shape': ['square', 'triangle', 'circle', 'star', 'heart', 'pentagon', 'hexagon', 'ring'],
-        'style': ['dotted', 'solid', 'filled', 'dashed', 'hstripe', 'vstripe', 'hgradient',
-                  'vgradient']
+        'style': ['dotted', 'solid', 'filled', 'dashed', 'hstripe', 'vstripe', 'hgrad', 'vgrad']
     }
 # PROPS.values() not used directly to maintain order
 data_verbose = list(itertools.product(*[PROPERTIES[key] for key in ATTRIBUTES]))
@@ -37,8 +41,7 @@ SPLIT_DATA = {}
 SPLIT_DATA['val'] = random.sample(data_verbose, int(OPT['holdout'] * len(data_verbose)))
 SPLIT_DATA['train'] = [sample for sample in data_verbose if sample not in SPLIT_DATA['val']]
 
-TASK_DEFN = [[0, 1], [1, 0], [0, 2],
-             [2, 0], [1, 2], [2, 1]]
+TASK_DEFN = [[0, 1], [1, 0], [0, 2], [2, 0], [1, 2], [2, 1]]
 
 TO_SAVE = {
     'attributes': ATTRIBUTES,
