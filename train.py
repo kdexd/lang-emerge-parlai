@@ -73,9 +73,11 @@ os.makedirs(OPT['save_path'])
 questioner = Questioner(OPT)
 answerer = Answerer(OPT)
 # this reward tensor is re-used every iteration
-reward = torch.Tensor(OPT['batch_size'], 1).fill_(- 10 * OPT['rl_scale'])
+reward = torch.Tensor(OPT['batch_size'], 1).fill_(-10 * OPT['rl_scale'])
+cumulative_reward = None
 if OPT.get('use_gpu'):
     questioner, answerer, reward = questioner.cuda(), answerer.cuda(), reward.cuda()
+
 print('Questioner and Answerer Bots: ')
 print(questioner)
 print(answerer)
@@ -123,9 +125,9 @@ for epoch_id in range(OPT['num_epochs']):
 
         # record cumulative reward in world
         batch_reward = torch.mean(reward) / OPT['rl_scale']
-        if not world.cumulative_reward:
-            world.cumulative_reward = batch_reward
-        world.cumulative_reward = 0.95 * world.cumulative_reward + 0.05 * batch_reward
+        if not cumulative_reward:
+            cumulative_reward = batch_reward
+        cumulative_reward = 0.95 * cumulative_reward + 0.05 * batch_reward
 
         # qbot and abot observe rewards at end of episode
         world.qbot.observe({'reward': reward, 'episode_done': True})

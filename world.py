@@ -31,7 +31,6 @@ class QAWorld(DialogPartnerWorld):
         self.abot = answerer
         self.acts = []
         self.episode_batch = None    # episode specific batch
-        self.cumulative_reward = 0
         super(QAWorld, self).__init__(opt, [self.qbot, self.abot], shared)
 
     def parley(self):

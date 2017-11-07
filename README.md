@@ -173,7 +173,6 @@ Im: ['purple', 'triangle', 'filled'] -  Task: ['shape', 'color']
 ```
 
 **TODO: Visualizing evolution chart - showing emergence of grounded language.**
-**TODO: Release the checkpoint with 80.23% validation accuracy on 11 nov 2017.**
 
 References
 ----------
