@@ -5,7 +5,7 @@ Code for the Paper
 
 **[Natural Language Does Not Emerge 'Naturally' in Multi-Agent Dialog][1]**
 Satwik Kottur, José M. F. Moura, Stefan Lee, Dhruv Batra
-[EMNLP 2017 (Best Student Paper)](https://www.facebook.com/emnlp2017/posts/1935449656693734)
+[EMNLP 2017 (Best Short Paper)](https://www.facebook.com/emnlp2017/posts/1935449656693734)
 
 If you find this code useful, please consider citing the original work by authors:
 
@@ -43,9 +43,9 @@ Setup
 This repository is only compatible with Python3, as ParlAI imposes this restriction; it requires
 Python3.
 
-1. Follow instructions under **Installing ParlAI** section from [ParlAI site](6).
-2. Follow instructions outlined on [PyTorch Homepage](7) for installing PyTorch (Python3).
-3. [tqdm](8) is used for providing progress bars, which can be downloaded via pip3.
+1. Follow instructions under **Installing ParlAI** section from [ParlAI site][6].
+2. Follow instructions outlined on [PyTorch Homepage][7] for installing PyTorch (Python3).
+3. [tqdm][8] is used for providing progress bars, which can be downloaded via pip3.
 
 
 Dataset Generation
@@ -191,22 +191,22 @@ References
 ----------
 
 1. **Sattvik Kottur, José M.F.Moura, Stefan Lee, Dhruv Batra.** _Natural Language Does Not Emerge
-   Naturally in Multi-Agent Dialog._ EMNLP 2017. [[arxiv]](1)
+   Naturally in Multi-Agent Dialog._ EMNLP 2017. [[arxiv][1]]
 1. **Alexander H. Miller, Will Feng, Adam Fisch, Jiasen Lu, Dhruv Batra, Antoine Bordes, Devi
-   Parikh, Jason Weston.** _ParlAI: A Dialog Research Software Platform._ 2017. [[arxiv]](2)
+   Parikh, Jason Weston.** _ParlAI: A Dialog Research Software Platform._ 2017. [[arxiv][2]]
 1. **Abhishek Das, Satwik Kottur, Khushi Gupta, Avi Singh, Deshraj Yadav, José M.F. Moura, Devi
-   Parikh and Dhruv Batra.** _Visual Dialog._ CVPR 2017. [[arxiv]](3)
+   Parikh and Dhruv Batra.** _Visual Dialog._ CVPR 2017. [[arxiv][3]]
 1. **Abhishek Das, Satwik Kottur, José M.F. Moura, Stefan Lee, and Dhruv Batra.** _Learning
-   Cooperative Visual Dialog Agents with Deep Reinforcement Learning._ ICCV 2017. [[arxiv]](4)
-1. ParlAI Docs. [[http://parl.ai/static/docs/index.html]](http://parl.ai/static/docs/index.html)
-1. PyTorch Docs. [[http://pytorch.org/docs/master]](http://pytorch.org/docs/master)
+   Cooperative Visual Dialog Agents with Deep Reinforcement Learning._ ICCV 2017. [[arxiv][4]]
+1. ParlAI Docs. [[http://parl.ai/static/docs/index.html](http://parl.ai/static/docs/index.html)]
+1. PyTorch Docs. [[http://pytorch.org/docs/master](http://pytorch.org/docs/master)]
 
 
 Standing on the Shoulders of Giants
 -----------------------------------
 
 The ease of implementing this paper using ParlAI framework is heavy accredited to the original
-source code released by authors of this paper. [[batra-mlp-lab/lang-emerge]](5)
+source code released by authors of this paper. [[batra-mlp-lab/lang-emerge][5]]
 
 License
 -------
