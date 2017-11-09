@@ -142,7 +142,7 @@ for epoch_id in range(OPT['num_epochs']):
             timestamp = datetime.strftime(datetime.utcnow(), '%a, %d %b %Y %X')
             print('[%s][Iter: %d][Epoch: %.2f][Reward: %.4f][Train Acc.: %.2f Val Acc.: %.2f]' % \
                   (timestamp, NUM_ITER_PER_EPOCH * epoch_id + iter_id, epoch_id,
-                   world.cumulative_reward, accuracy['train'], accuracy['val']))
+                   cumulative_reward, accuracy['train'], accuracy['val']))
     #---------------------------------------------------------------------------------------------
     # training and validation metrics
     #---------------------------------------------------------------------------------------------

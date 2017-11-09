@@ -160,7 +160,7 @@ Save the conversation of bots by providing `--save-conv-path` argument. For more
 python3 evaluate.py --help
 ```
 
-Evaluation script reprots training and validation accuracies of the world. Separate accuracies
+Evaluation script reports training and validation accuracies of the world. Separate accuracies
 for first attribute match, second attribute match, both match and atleast one match are reported.
 
 #### Sample Conversation
@@ -170,6 +170,19 @@ Im: ['purple', 'triangle', 'filled'] -  Task: ['shape', 'color']
     Q1: X    A1: 2
     Q2: Y    A2: 0
     GT: ['triangle', 'purple']  Pred: ['triangle', 'purple']
+```
+
+
+Pretrained World Checkpoint
+---------------------------
+
+Best performing world checkpoint has been released [here](https://github.com/karandesai-96/lang-emerge-parlai/releases/tag/v1.0), along with details to reconstruct the world object using
+this checkpoint.
+
+**Reported metrics:**
+```text
+Overall accuracy [train]: 96.47 (first: 97.76, second: 98.72, atleast_one: 100.00)
+Overall accuracy [val]: 98.61 (first: 98.61, second: 100.00, atleast_one: 100.00)
 ```
 
 **TODO: Visualizing evolution chart - showing emergence of grounded language.**
