@@ -190,7 +190,7 @@ Overall accuracy [val]: 98.61 (first: 98.61, second: 100.00, atleast_one: 100.00
 References
 ----------
 
-1. **Sattvik Kottur, José M.F.Moura, Stefan Lee, Dhruv Batra.** _Natural Language Does Not Emerge
+1. **Satwik Kottur, José M.F.Moura, Stefan Lee, Dhruv Batra.** _Natural Language Does Not Emerge
    Naturally in Multi-Agent Dialog._ EMNLP 2017. [[arxiv][1]]
 1. **Alexander H. Miller, Will Feng, Adam Fisch, Jiasen Lu, Dhruv Batra, Antoine Bordes, Devi
    Parikh, Jason Weston.** _ParlAI: A Dialog Research Software Platform._ 2017. [[arxiv][2]]
